@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+.env
+*.log
+.DS_Store
+*.sqlite
+*.db
+keys/
+PIA_WG_KEYS_DIR/

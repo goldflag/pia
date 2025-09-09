@@ -1,0 +1,39 @@
+{
+  "name": "proxyfarm",
+  "version": "1.0.0",
+  "description": "PIA WireGuard Proxy Farm",
+  "main": "dist/index.js",
+  "bin": {
+    "pf": "./bin/pf"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["proxy", "wireguard", "pia", "socks5"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.1.0",
+    "dockerode": "^4.0.2",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "socks": "^2.7.1"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.23",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}
