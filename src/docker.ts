@@ -32,18 +32,13 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     throw new Error('PIA requires username and password for OpenVPN');
   }
 
-  // PIA regions format: "US Chicago", "UK London", etc.
-  // For Gluetun, we can use SERVER_REGIONS directly
-  if (country && city) {
-    // Use region format like "US Chicago"
-    const region = `${country} ${city}`;
-    env.push(`SERVER_REGIONS=${region}`);
-  } else if (country) {
-    // Just use country if no city specified
-    // Gluetun will pick any server in that country
-    env.push(`SERVER_REGIONS=${country}`);
-  }
-  // If neither country nor city, Gluetun will auto-select
+  // PIA with Gluetun - let's not specify regions for now
+  // as Gluetun seems to have issues with PIA region selection
+  // It will auto-select the best server
+  
+  // Store region info in labels for reference only
+  const regionLabel = country && city ? `${country}-${city}` : 
+                      country ? country : 'auto';
 
   const containerInfo = await docker.createContainer({
     Image: config.vpnImage,
@@ -70,6 +65,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
       'proxyfarm': 'true',
       'proxyfarm.id': id,
       'proxyfarm.port': String(port),
+      'proxyfarm.region': regionLabel,
       ...(country ? { 'proxyfarm.country': country } : {}),
       ...(city ? { 'proxyfarm.city': city } : {})
     }

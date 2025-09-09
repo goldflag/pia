@@ -31,9 +31,12 @@ program
       console.log(chalk.green('Proxy created successfully!'));
       console.log(chalk.gray('ID:'), proxy.id);
       console.log(chalk.gray('Port:'), proxy.port);
-      console.log(chalk.gray('Region:'), `${proxy.country || 'Any'}/${proxy.city || 'Any'}`);
+      console.log(chalk.gray('Region:'), `${proxy.country || 'Auto'}/${proxy.city || 'Auto'}`);
       
-      console.log(chalk.yellow('\nChecking health...'));
+      console.log(chalk.yellow('\nWaiting for VPN connection...'));
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+      
+      console.log(chalk.yellow('Checking health...'));
       const health = await checkProxyHealth(proxy.id);
       
       if (health.healthy) {
