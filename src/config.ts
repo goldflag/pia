@@ -9,8 +9,8 @@ export const config: Config = {
   maxProxies: parseInt(process.env.MAX_PROXIES || '300', 10),
   piaUsername: process.env.PIA_USERNAME,
   piaPassword: process.env.PIA_PASSWORD,
-  piaToken: process.env.PIA_TOKEN,
-  piaWgKeysDir: process.env.PIA_WG_KEYS_DIR,
+  piaToken: undefined, // PIA with Gluetun uses OpenVPN only
+  piaWgKeysDir: undefined, // Not used with OpenVPN
   defaultCountry: process.env.DEFAULT_COUNTRY,
   defaultCity: process.env.DEFAULT_CITY,
   exitIpCheckUrl: process.env.EXIT_IP_CHECK_URL || 'https://ifconfig.io',
@@ -23,12 +23,8 @@ export const config: Config = {
 };
 
 export function validateConfig(): void {
-  if (!config.piaUsername && !config.piaToken) {
-    throw new Error('Either PIA_USERNAME/PIA_PASSWORD or PIA_TOKEN must be set');
-  }
-  
-  if (config.piaUsername && !config.piaPassword) {
-    throw new Error('PIA_PASSWORD must be set when using PIA_USERNAME');
+  if (!config.piaUsername || !config.piaPassword) {
+    throw new Error('PIA_USERNAME and PIA_PASSWORD must be set');
   }
   
   if (config.portRangeStart >= config.portRangeEnd) {

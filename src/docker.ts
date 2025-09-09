@@ -15,7 +15,8 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
 
   const env: string[] = [
     'VPN_SERVICE_PROVIDER=private internet access',
-    'VPN_TYPE=wireguard',
+    'VPN_TYPE=openvpn',
+    'OPENVPN_PROTOCOL=udp',
     'HTTPPROXY=off',
     'SHADOWSOCKS=on',
     'SHADOWSOCKS_LISTENING_ADDRESS=:8388',
@@ -24,11 +25,11 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'LOG_LEVEL=info'
   ];
 
-  if (config.piaToken) {
-    env.push(`WIREGUARD_PRIVATE_KEY=${config.piaToken}`);
-  } else if (config.piaUsername && config.piaPassword) {
+  if (config.piaUsername && config.piaPassword) {
     env.push(`OPENVPN_USER=${config.piaUsername}`);
     env.push(`OPENVPN_PASSWORD=${config.piaPassword}`);
+  } else {
+    throw new Error('PIA requires username and password for OpenVPN');
   }
 
   if (country) {
