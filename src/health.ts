@@ -1,5 +1,5 @@
 import { registry } from './registry';
-import { fetchExitIp, testSocksConnection } from './docker';
+import { fetchExitIp, testHttpProxyConnection } from './docker';
 import { config } from './config';
 
 interface HealthCheckResult {
@@ -17,11 +17,12 @@ export async function checkProxyHealth(proxyId: string): Promise<HealthCheckResu
   }
 
   try {
-    const socksOk = await testSocksConnection('127.0.0.1', proxy.port);
+    // Test HTTP proxy connection instead of SOCKS5
+    const proxyOk = await testHttpProxyConnection('127.0.0.1', proxy.port);
     
-    if (!socksOk) {
+    if (!proxyOk) {
       await registry.update(proxyId, { healthy: false });
-      return { proxyId, healthy: false, error: 'SOCKS5 connection failed' };
+      return { proxyId, healthy: false, error: 'HTTP proxy connection failed' };
     }
 
     const exitIp = await fetchExitIp(proxy.containerId);

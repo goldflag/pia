@@ -17,10 +17,10 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'VPN_SERVICE_PROVIDER=private internet access',
     'VPN_TYPE=openvpn',
     'OPENVPN_PROTOCOL=udp',
-    'HTTPPROXY=off',
-    'SHADOWSOCKS=on',
-    'SHADOWSOCKS_LISTENING_ADDRESS=:8388',
-    'SHADOWSOCKS_PASSWORD=proxyfarm',  // Required for Shadowsocks to work
+    'HTTPPROXY=on',
+    'HTTPPROXY_LISTENING_ADDRESS=:8888',
+    'HTTPPROXY_STEALTH=on',
+    'SHADOWSOCKS=off',
     'UPDATER_PERIOD=24h',
     'TZ=UTC',
     'LOG_LEVEL=info'
@@ -46,8 +46,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     name: `pf_${id}`,
     Env: env,
     ExposedPorts: {
-      '8388/tcp': {},
-      '8388/udp': {}
+      '8888/tcp': {}
     },
     HostConfig: {
       CapAdd: ['NET_ADMIN'],
@@ -57,8 +56,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
         CgroupPermissions: 'rwm'
       }],
       PortBindings: {
-        '8388/tcp': [{ HostPort: String(port) }],
-        '8388/udp': [{ HostPort: String(port) }]
+        '8888/tcp': [{ HostPort: String(port) }]
       },
       RestartPolicy: { Name: 'unless-stopped' }
     },
@@ -200,7 +198,7 @@ export async function fetchExitIp(containerId: string): Promise<string | null> {
   }
 }
 
-export async function testSocksConnection(host: string, port: number): Promise<boolean> {
+export async function testHttpProxyConnection(host: string, port: number): Promise<boolean> {
   const net = require('net');
   
   return new Promise((resolve) => {
