@@ -103,20 +103,33 @@ program
 program
   .command('ls')
   .alias('list')
-  .description('List all proxies')
+  .description('List all proxies with current health status')
   .option('--json', 'Output as JSON')
+  .option('--no-check', 'Skip health check')
   .action(async (options) => {
     try {
       await reconcileContainers();
       const proxies = await registry.list();
       
-      if (options.json) {
-        console.log(JSON.stringify(proxies, null, 2));
+      if (proxies.length === 0) {
+        console.log(chalk.yellow('No proxies found'));
         return;
       }
       
-      if (proxies.length === 0) {
-        console.log(chalk.yellow('No proxies found'));
+      // Check health unless skipped
+      if (!options.noCheck) {
+        console.log(chalk.yellow('Checking health status...'));
+        for (const proxy of proxies) {
+          await checkProxyHealth(proxy.id);
+        }
+        // Refresh list after health check
+        const updatedProxies = await registry.list();
+        proxies.length = 0;
+        proxies.push(...updatedProxies);
+      }
+      
+      if (options.json) {
+        console.log(JSON.stringify(proxies, null, 2));
         return;
       }
       
@@ -125,9 +138,11 @@ program
         style: { head: ['cyan'] }
       });
       
+      let healthyCount = 0;
       for (const proxy of proxies) {
+        if (proxy.healthy) healthyCount++;
         const status = proxy.healthy ? chalk.green('✓') : chalk.red('✗');
-        const region = `${proxy.country || 'Any'}/${proxy.city || 'Any'}`;
+        const region = `${proxy.country || 'Auto'}/${proxy.city || 'Auto'}`;
         const created = new Date(proxy.createdAt).toLocaleString();
         
         table.push([
@@ -142,7 +157,7 @@ program
       }
       
       console.log(table.toString());
-      console.log(chalk.gray(`\nTotal: ${proxies.length} proxies`));
+      console.log(chalk.gray(`\nTotal: ${proxies.length} proxies (${chalk.green(healthyCount)} healthy, ${chalk.red(proxies.length - healthyCount)} unhealthy)`));
     } catch (err: any) {
       console.error(chalk.red('Error:'), err.message);
       process.exit(1);
@@ -228,31 +243,5 @@ program
     }
   });
 
-program
-  .command('check')
-  .description('Check health of all proxies')
-  .action(async () => {
-    try {
-      const proxies = await registry.list();
-      console.log(chalk.yellow(`Checking health of ${proxies.length} proxies...`));
-      
-      let healthyCount = 0;
-      for (const proxy of proxies) {
-        const health = await checkProxyHealth(proxy.id);
-        if (health.healthy) {
-          console.log(chalk.green(`✓ Proxy ${proxy.port}: ${health.exitIp}`));
-          healthyCount++;
-        } else {
-          console.log(chalk.red(`✗ Proxy ${proxy.port}: ${health.error}`));
-        }
-      }
-      
-      console.log(chalk.gray('\n─'.repeat(40)));
-      console.log(`Results: ${chalk.green(healthyCount)} healthy, ${chalk.red(proxies.length - healthyCount)} unhealthy`);
-    } catch (err: any) {
-      console.error(chalk.red('Error:'), err.message);
-      process.exit(1);
-    }
-  });
 
 program.parse();
