@@ -17,8 +17,11 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'VPN_SERVICE_PROVIDER=private internet access',
     'VPN_TYPE=wireguard',
     'HTTPPROXY=off',
-    'SHADOWSOCKS=off',
-    'UPDATER_PERIOD=24h'
+    'SHADOWSOCKS=on',
+    'SHADOWSOCKS_LISTENING_ADDRESS=:8388',
+    'UPDATER_PERIOD=24h',
+    'TZ=UTC',
+    'LOG_LEVEL=info'
   ];
 
   if (config.piaToken) {
@@ -41,7 +44,8 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     name: `pf_${id}`,
     Env: env,
     ExposedPorts: {
-      '8888/tcp': {}
+      '8388/tcp': {},
+      '8388/udp': {}
     },
     HostConfig: {
       CapAdd: ['NET_ADMIN'],
@@ -51,7 +55,8 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
         CgroupPermissions: 'rwm'
       }],
       PortBindings: {
-        '8888/tcp': [{ HostPort: String(port) }]
+        '8388/tcp': [{ HostPort: String(port) }],
+        '8388/udp': [{ HostPort: String(port) }]
       },
       RestartPolicy: { Name: 'unless-stopped' }
     },
