@@ -17,14 +17,16 @@ vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
 
 3. Create proxies:
 ```bash
-# Add a single proxy
-docker exec proxyfarm-manager pf add --country US
+# Add a single proxy (auto-selects best PIA server)
+docker exec proxyfarm-manager pf add
 
 # Add multiple proxies
-docker exec proxyfarm-manager pf up --count 10 --country US
+docker exec proxyfarm-manager pf up --count 10
 
 # List all proxies
 docker exec proxyfarm-manager pf ls
+
+# Note: Region selection is stored but not enforced due to Gluetun/PIA limitations
 ```
 
 ## Manual Setup (Development)
@@ -94,9 +96,15 @@ pf status
 
 ### Using Proxies
 
-Connect via SOCKS5:
+Connect via HTTP proxy:
 ```bash
-curl --proxy socks5h://localhost:12000 https://ifconfig.io
+# HTTP proxy on assigned port
+curl --proxy http://localhost:12000 https://ifconfig.io
+
+# In applications, configure HTTP proxy:
+# Host: localhost (or your server IP)
+# Port: 12000 (or assigned port)
+# Type: HTTP
 ```
 
 ## Configuration
@@ -116,12 +124,13 @@ Key environment variables:
 
 ## Docker Networking
 
-The proxy containers are created on the host network. Each proxy exposes its SOCKS5 port directly on the host.
+The proxy containers are created on the host network. Each proxy exposes its HTTP proxy port directly on the host.
 
 ### Port Management
 - Default range: 12000-13999
 - Each proxy gets a unique port from this range
 - Ports are managed by the proxy farm service
+- Protocol: HTTP proxy (not SOCKS5)
 
 ### Accessing Proxies from Other Containers
 
@@ -139,7 +148,36 @@ services:
 
 ## Security
 
-- Restrict SOCKS access via firewall
+- Restrict HTTP proxy access via firewall
 - Never expose ports publicly without authentication
 - Keep PIA credentials secure
 - Use Docker secrets for production deployments
+
+## Technical Details
+
+- **VPN Provider**: Private Internet Access (PIA)
+- **VPN Protocol**: OpenVPN (UDP)
+- **Proxy Type**: HTTP proxy (via Gluetun)
+- **Container Image**: qmcgaw/gluetun:latest
+- **Health Checks**: Automatic connectivity and exit IP verification
+- **Port Allocation**: Automatic with collision prevention
+- **Data Storage**: JSON-based registry (SQLite optional)
+
+## Troubleshooting
+
+### Proxy shows unhealthy but works
+- The health check may timeout during initial connection
+- Wait 10-15 seconds after creation for VPN to stabilize
+- Manually test with: `curl --proxy http://localhost:PORT https://ifconfig.io`
+
+### Container keeps restarting
+- Check PIA credentials in `.env` file
+- Verify Docker has sufficient resources
+- Check logs: `docker logs pf_CONTAINER_ID`
+
+### Reset everything
+```bash
+./reset.sh              # Remove containers, keep images
+./reset.sh --clean-images  # Remove everything
+./rebuild.sh            # Complete rebuild from scratch
+```

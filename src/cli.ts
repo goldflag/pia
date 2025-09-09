@@ -79,6 +79,21 @@ program
       }
       
       console.log(chalk.green(`\nCreated ${proxies.length} proxies successfully`));
+      
+      if (proxies.length > 0) {
+        console.log(chalk.yellow('\nWaiting for VPN connections to establish...'));
+        await new Promise(resolve => setTimeout(resolve, 15000)); // Wait 15 seconds
+        
+        console.log(chalk.yellow('Checking health of all proxies...'));
+        for (const proxy of proxies) {
+          const health = await checkProxyHealth(proxy.id);
+          if (health.healthy) {
+            console.log(chalk.green(`✓ Proxy ${proxy.port}: ${health.exitIp}`));
+          } else {
+            console.log(chalk.red(`✗ Proxy ${proxy.port}: ${health.error}`));
+          }
+        }
+      }
     } catch (err: any) {
       console.error(chalk.red('Error:'), err.message);
       process.exit(1);
@@ -207,6 +222,33 @@ program
       if (countries.size > 0) {
         console.log(`Countries: ${Array.from(countries).join(', ')}`);
       }
+    } catch (err: any) {
+      console.error(chalk.red('Error:'), err.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('check')
+  .description('Check health of all proxies')
+  .action(async () => {
+    try {
+      const proxies = await registry.list();
+      console.log(chalk.yellow(`Checking health of ${proxies.length} proxies...`));
+      
+      let healthyCount = 0;
+      for (const proxy of proxies) {
+        const health = await checkProxyHealth(proxy.id);
+        if (health.healthy) {
+          console.log(chalk.green(`✓ Proxy ${proxy.port}: ${health.exitIp}`));
+          healthyCount++;
+        } else {
+          console.log(chalk.red(`✗ Proxy ${proxy.port}: ${health.error}`));
+        }
+      }
+      
+      console.log(chalk.gray('\n─'.repeat(40)));
+      console.log(`Results: ${chalk.green(healthyCount)} healthy, ${chalk.red(proxies.length - healthyCount)} unhealthy`);
     } catch (err: any) {
       console.error(chalk.red('Error:'), err.message);
       process.exit(1);
