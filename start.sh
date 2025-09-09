@@ -33,7 +33,7 @@ docker pull curlimages/curl:latest
 
 # Start the proxy farm
 echo "🔧 Starting services..."
-docker-compose up -d
+docker compose up -d
 
 # Wait for service to be ready
 echo "⏳ Waiting for service to initialize..."
@@ -49,7 +49,7 @@ echo "  docker exec proxyfarm-manager pf ls                      # List proxies"
 echo "  docker exec proxyfarm-manager pf status                  # System status"
 echo ""
 echo "View logs:"
-echo "  docker-compose logs -f proxyfarm"
+echo "  docker compose logs -f proxyfarm"
 echo ""
 echo "Stop the farm:"
-echo "  docker-compose down"
+echo "  docker compose down"
