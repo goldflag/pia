@@ -1,6 +1,6 @@
-# PIA WireGuard Proxy Farm
+# PIA OpenVPN Proxy Farm
 
-Run multiple SOCKS5 proxies via PIA WireGuard tunnels on a single host.
+Run multiple HTTP proxies via PIA OpenVPN tunnels on a single host.
 
 ## Quick Start (Docker Compose)
 

@@ -1,6 +1,7 @@
 import { registry } from './registry';
-import { fetchExitIp, testHttpProxyConnection } from './docker';
+import { fetchExitIp } from './docker';
 import { config } from './config';
+import * as http from 'http';
 
 interface HealthCheckResult {
   proxyId: string;
@@ -17,19 +18,18 @@ export async function checkProxyHealth(proxyId: string): Promise<HealthCheckResu
   }
 
   try {
-    // Test HTTP proxy connection instead of SOCKS5
-    const proxyOk = await testHttpProxyConnection('127.0.0.1', proxy.port);
-    
-    if (!proxyOk) {
-      await registry.update(proxyId, { healthy: false });
-      return { proxyId, healthy: false, error: 'HTTP proxy connection failed' };
-    }
-
-    const exitIp = await fetchExitIp(proxy.containerId);
+    // Test HTTP proxy by actually making a request through it
+    const exitIp = await testProxyAndGetIp('127.0.0.1', proxy.port);
     
     if (!exitIp) {
-      await registry.update(proxyId, { healthy: false });
-      return { proxyId, healthy: false, error: 'Could not fetch exit IP' };
+      // Fallback to checking container's exit IP
+      const containerIp = await fetchExitIp(proxy.containerId);
+      if (!containerIp) {
+        await registry.update(proxyId, { healthy: false });
+        return { proxyId, healthy: false, error: 'Proxy not responding' };
+      }
+      await registry.update(proxyId, { healthy: true, exitIp: containerIp });
+      return { proxyId, healthy: true, exitIp: containerIp };
     }
 
     await registry.update(proxyId, { 
@@ -108,4 +108,36 @@ export function stopHealthCheck(): void {
     clearInterval(healthCheckInterval);
     healthCheckInterval = null;
   }
+}
+
+async function testProxyAndGetIp(host: string, port: number): Promise<string | null> {
+  return new Promise((resolve) => {
+    const options = {
+      host: host,
+      port: port,
+      path: config.exitIpCheckUrl,
+      method: 'GET',
+      headers: {
+        'Host': new URL(config.exitIpCheckUrl).hostname
+      },
+      timeout: 5000
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        const ip = data.trim().match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/);
+        resolve(ip ? ip[0] : null);
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.end();
+  });
 }
