@@ -8,17 +8,18 @@ RUN apk add --no-cache docker-cli curl
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (including dev) for building
+RUN npm ci
 
 # Copy TypeScript config and source
 COPY tsconfig.json ./
 COPY src ./src
 
-# Install TypeScript and build
-RUN npm install -g typescript && \
-    npm run build && \
-    npm uninstall -g typescript
+# Build the TypeScript code
+RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Copy CLI binary
 COPY bin ./bin

@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   proxyfarm:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: proxyfarm-manager
     restart: unless-stopped
     environment:
