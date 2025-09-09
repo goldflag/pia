@@ -2,10 +2,9 @@ import Docker from 'dockerode';
 import { randomUUID } from 'crypto';
 import { ProxyRecord, CreateProxyOptions } from './types';
 import { config } from './config';
-import { Registry } from './registry';
+import { registry } from './registry';
 
 const docker = new Docker();
-const registry = new Registry();
 
 export async function createProxy(options: CreateProxyOptions = {}): Promise<ProxyRecord> {
   const id = randomUUID();

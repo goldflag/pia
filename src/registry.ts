@@ -3,7 +3,7 @@ import { config } from './config';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export class Registry {
+class Registry {
   private dataPath: string;
   private data: Map<string, ProxyRecord>;
 
@@ -89,3 +89,6 @@ export class Registry {
     this.save();
   }
 }
+
+// Singleton instance
+export const registry = new Registry();

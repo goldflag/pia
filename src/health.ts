@@ -1,8 +1,6 @@
-import { Registry } from './registry';
+import { registry } from './registry';
 import { fetchExitIp, testSocksConnection } from './docker';
 import { config } from './config';
-
-const registry = new Registry();
 
 interface HealthCheckResult {
   proxyId: string;

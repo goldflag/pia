@@ -1,11 +1,10 @@
 import express from 'express';
 import { createProxy, removeProxy, rotateProxy } from './docker';
-import { Registry } from './registry';
+import { registry } from './registry';
 import { checkProxyHealth } from './health';
 import { config } from './config';
 
 const app = express();
-const registry = new Registry();
 
 app.use(express.json());
 

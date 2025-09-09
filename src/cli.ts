@@ -4,12 +4,11 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import { createProxy, removeProxy, rotateProxy, reconcileContainers } from './docker';
-import { Registry } from './registry';
+import { registry } from './registry';
 import { checkProxyHealth, healProxies } from './health';
 import { validateConfig } from './config';
 
 const program = new Command();
-const registry = new Registry();
 
 program
   .name('pf')
