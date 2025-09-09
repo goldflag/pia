@@ -2,7 +2,32 @@
 
 Run multiple SOCKS5 proxies via PIA WireGuard tunnels on a single host.
 
-## Setup
+## Quick Start (Docker Compose)
+
+1. Configure PIA credentials:
+```bash
+cp .env.example .env
+vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
+```
+
+2. Start the proxy farm:
+```bash
+./start.sh
+```
+
+3. Create proxies:
+```bash
+# Add a single proxy
+docker exec proxyfarm-manager pf add --country US
+
+# Add multiple proxies
+docker exec proxyfarm-manager pf up --count 10 --country US
+
+# List all proxies
+docker exec proxyfarm-manager pf ls
+```
+
+## Manual Setup (Development)
 
 1. Install dependencies:
 ```bash
@@ -22,28 +47,48 @@ npm run build
 
 ## Usage
 
-### CLI Commands
+### Docker Compose Commands
 
 ```bash
-# Create single proxy
-pf add --country US --city "New York"
+# Start the proxy farm
+docker-compose up -d
 
-# Bulk create
-pf up --count 10 --country US
+# Create proxies
+docker exec proxyfarm-manager pf add --country US --city "New York"
+docker exec proxyfarm-manager pf up --count 10 --country US
 
-# List all proxies
-pf ls
+# List proxies
+docker exec proxyfarm-manager pf ls
 
 # Remove proxy
-pf rm <id>
+docker exec proxyfarm-manager pf rm <id>
 
 # Rotate proxy (restart for new IP)
-pf rotate <id>
+docker exec proxyfarm-manager pf rotate <id>
 
 # Heal unhealthy proxies
-pf heal
+docker exec proxyfarm-manager pf heal
 
 # System status
+docker exec proxyfarm-manager pf status
+
+# View logs
+docker-compose logs -f proxyfarm
+
+# Stop the farm
+docker-compose down
+```
+
+### CLI Commands (Direct)
+
+When running directly on host:
+```bash
+pf add --country US --city "New York"
+pf up --count 10 --country US
+pf ls
+pf rm <id>
+pf rotate <id>
+pf heal
 pf status
 ```
 
@@ -69,8 +114,32 @@ Key environment variables:
 - Linux host (for production)
 - Sufficient RAM for containers (~128MB per proxy)
 
+## Docker Networking
+
+The proxy containers are created on the host network. Each proxy exposes its SOCKS5 port directly on the host.
+
+### Port Management
+- Default range: 12000-13999
+- Each proxy gets a unique port from this range
+- Ports are managed by the proxy farm service
+
+### Accessing Proxies from Other Containers
+
+If you need to access proxies from other Docker containers:
+
+```yaml
+# In your docker-compose.yml
+services:
+  your-app:
+    network_mode: host  # Access proxy ports directly
+    # OR
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Then use host.docker.internal:12000
+```
+
 ## Security
 
 - Restrict SOCKS access via firewall
 - Never expose ports publicly without authentication
 - Keep PIA credentials secure
+- Use Docker secrets for production deployments

@@ -1,0 +1,17 @@
+# Development override - for running on host directly
+# To use: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  proxyfarm:
+    # For development, mount source code
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/app/data
+      - ./keys:/app/keys:ro
+      - ./src:/app/src:ro
+      - ./dist:/app/dist:ro
+      - ./bin:/app/bin:ro
+    # Use tsx for hot reload in development
+    command: ["npx", "tsx", "src/index.ts"]

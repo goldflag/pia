@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  proxyfarm:
+    build: .
+    container_name: proxyfarm-manager
+    restart: unless-stopped
+    environment:
+      - PORT_RANGE_START=${PORT_RANGE_START:-12000}
+      - PORT_RANGE_END=${PORT_RANGE_END:-13999}
+      - MAX_PROXIES=${MAX_PROXIES:-300}
+      - PIA_USERNAME=${PIA_USERNAME}
+      - PIA_PASSWORD=${PIA_PASSWORD}
+      - PIA_TOKEN=${PIA_TOKEN}
+      - DEFAULT_COUNTRY=${DEFAULT_COUNTRY:-US}
+      - DEFAULT_CITY=${DEFAULT_CITY}
+      - EXIT_IP_CHECK_URL=${EXIT_IP_CHECK_URL:-https://ifconfig.io}
+      - HEALTH_INTERVAL_SEC=${HEALTH_INTERVAL_SEC:-15}
+      - SOCKS_BIND=${SOCKS_BIND:-0.0.0.0}
+      - REST_ENABLED=${REST_ENABLED:-false}
+      - REST_PORT=${REST_PORT:-8080}
+      - VPN_IMAGE=${VPN_IMAGE:-qmcgaw/gluetun:latest}
+      - DB_PATH=/app/data/proxies.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/app/data
+      - ./keys:/app/keys:ro
+    ports:
+      # REST API (if enabled)
+      - "127.0.0.1:8080:8080"
+      # Proxy ports range - uncomment and adjust as needed
+      # - "12000-13999:12000-13999"
+    networks:
+      - proxyfarm-net
+    depends_on:
+      - setup
+
+  setup:
+    image: busybox
+    command: sh -c "echo 'Ensuring data directory exists' && mkdir -p /data"
+    volumes:
+      - ./data:/data
+
+networks:
+  proxyfarm-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
