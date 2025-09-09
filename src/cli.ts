@@ -84,9 +84,18 @@ program
         console.log(chalk.yellow('\nWaiting for VPN connections to establish...'));
         await new Promise(resolve => setTimeout(resolve, 15000)); // Wait 15 seconds
         
-        console.log(chalk.yellow('Checking health of all proxies...'));
-        for (const proxy of proxies) {
-          const health = await checkProxyHealth(proxy.id);
+        console.log(chalk.yellow('Checking health of all proxies in parallel...'));
+        
+        // Check all proxies in parallel
+        const healthChecks = await Promise.all(
+          proxies.map(async (proxy) => {
+            const health = await checkProxyHealth(proxy.id);
+            return { proxy, health };
+          })
+        );
+        
+        // Display results
+        for (const { proxy, health } of healthChecks) {
           if (health.healthy) {
             console.log(chalk.green(`✓ Proxy ${proxy.port}: ${health.exitIp}`));
           } else {
@@ -106,6 +115,7 @@ program
   .description('List all proxies with current health status')
   .option('--json', 'Output as JSON')
   .option('--no-check', 'Skip health check')
+  .option('--batch-size <size>', 'Number of health checks to run simultaneously', '10')
   .action(async (options) => {
     try {
       await reconcileContainers();
@@ -118,10 +128,40 @@ program
       
       // Check health unless skipped
       if (!options.noCheck) {
-        console.log(chalk.yellow('Checking health status...'));
-        for (const proxy of proxies) {
-          await checkProxyHealth(proxy.id);
+        const batchSize = parseInt(options.batchSize, 10) || 10;
+        
+        if (batchSize >= proxies.length) {
+          // Run all at once if batch size is large enough
+          console.log(chalk.yellow(`Checking health of ${proxies.length} proxies in parallel...`));
+          
+          const healthPromises = proxies.map(proxy => 
+            checkProxyHealth(proxy.id).catch(err => ({
+              proxyId: proxy.id,
+              healthy: false,
+              error: err.message
+            }))
+          );
+          
+          await Promise.all(healthPromises);
+        } else {
+          // Run in batches
+          console.log(chalk.yellow(`Checking health of ${proxies.length} proxies in batches of ${batchSize}...`));
+          
+          for (let i = 0; i < proxies.length; i += batchSize) {
+            const batch = proxies.slice(i, i + batchSize);
+            const healthPromises = batch.map(proxy => 
+              checkProxyHealth(proxy.id).catch(err => ({
+                proxyId: proxy.id,
+                healthy: false,
+                error: err.message
+              }))
+            );
+            
+            await Promise.all(healthPromises);
+            console.log(chalk.gray(`  Checked ${Math.min(i + batchSize, proxies.length)}/${proxies.length}`));
+          }
         }
+        
         // Refresh list after health check
         const updatedProxies = await registry.list();
         proxies.length = 0;
