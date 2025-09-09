@@ -20,6 +20,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'HTTPPROXY=off',
     'SHADOWSOCKS=on',
     'SHADOWSOCKS_LISTENING_ADDRESS=:8388',
+    'SHADOWSOCKS_PASSWORD=proxyfarm',  // Required for Shadowsocks to work
     'UPDATER_PERIOD=24h',
     'TZ=UTC',
     'LOG_LEVEL=info'
