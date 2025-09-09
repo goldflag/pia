@@ -26,9 +26,14 @@ mkdir -p data
 # Remove docker images if requested
 if [ "$1" == "--clean-images" ]; then
     echo "Removing Docker images..."
-    docker rmi proxyfarm-manager 2>/dev/null || true
+    docker rmi pia-proxyfarm 2>/dev/null || true
+    docker rmi $(docker images -q --filter "reference=pia*") 2>/dev/null || true
     docker rmi qmcgaw/gluetun:latest 2>/dev/null || true
     docker rmi curlimages/curl:latest 2>/dev/null || true
+    
+    # Also clear build cache
+    echo "Clearing Docker build cache..."
+    docker builder prune -af 2>/dev/null || true
 fi
 
 # Show status
