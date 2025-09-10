@@ -72,7 +72,7 @@ start_farm() {
     
     # Start the proxy farm
     print_color "🔧 Starting services..." "$YELLOW"
-    docker compose up -d
+    docker compose -f docker-compose.yml up -d
     
     # Wait for service to be ready
     print_color "⏳ Waiting for service to initialize..." "$YELLOW"
@@ -106,8 +106,8 @@ update_code() {
     
     # Stop only the manager
     print_color "Stopping manager container..." "$YELLOW"
-    docker compose stop proxyfarm 2>/dev/null || true
-    docker compose rm -f proxyfarm 2>/dev/null || true
+    docker compose -f docker-compose.yml stop proxyfarm 2>/dev/null || true
+    docker compose -f docker-compose.yml rm -f proxyfarm 2>/dev/null || true
     
     # Clean local dist to ensure Docker builds fresh (not copies old build)
     print_color "Cleaning local build artifacts..." "$YELLOW"
@@ -115,11 +115,11 @@ update_code() {
     
     # Rebuild manager image only (Docker will build TypeScript inside)
     print_color "Rebuilding manager Docker image..." "$YELLOW"
-    docker compose build --no-cache proxyfarm
+    docker compose -f docker-compose.yml build --no-cache proxyfarm
     
     # Start the manager
     print_color "Starting updated manager..." "$YELLOW"
-    docker compose up -d proxyfarm
+    docker compose -f docker-compose.yml up -d proxyfarm
     
     # Wait for startup
     sleep 3
@@ -139,7 +139,7 @@ reset_proxies() {
     
     # Stop the manager
     print_color "Stopping proxy farm manager..." "$YELLOW"
-    docker compose down 2>/dev/null || true
+    docker compose -f docker-compose.yml down 2>/dev/null || true
     
     # Remove all proxy containers
     print_color "Removing all proxy containers..." "$YELLOW"
@@ -168,7 +168,7 @@ rebuild_all() {
     
     # Stop everything
     print_color "Stopping all services..." "$YELLOW"
-    docker compose down -v
+    docker compose -f docker-compose.yml down -v
     
     # Remove all proxy containers
     print_color "Removing proxy containers..." "$YELLOW"
@@ -190,11 +190,11 @@ rebuild_all() {
     
     # Build Docker image from scratch (Docker will build TypeScript inside)
     print_color "Building Docker image from scratch..." "$YELLOW"
-    DOCKER_BUILDKIT=0 docker compose build --no-cache --pull --force-rm
+    DOCKER_BUILDKIT=0 docker compose -f docker-compose.yml build --no-cache --pull --force-rm
     
     # Start services
     print_color "Starting services..." "$YELLOW"
-    docker compose up -d
+    docker compose -f docker-compose.yml up -d
     
     # Wait and verify
     print_color "Waiting for services to start..." "$YELLOW"
