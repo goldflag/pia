@@ -295,12 +295,12 @@ program
 
 program
   .command("heal")
-  .description("Restart all unhealthy proxies")
+  .description("Clean up registry and heal unhealthy proxies")
   .action(async () => {
     try {
-      console.log(chalk.yellow("Healing unhealthy proxies..."));
+      console.log(chalk.cyan("Starting proxy maintenance..."));
+      console.log(chalk.gray("─".repeat(40)));
       await healProxies();
-      console.log(chalk.green("Healing complete"));
     } catch (err: any) {
       console.error(chalk.red("Error:"), err.message);
       process.exit(1);
@@ -332,132 +332,15 @@ program
     }
   });
 
+// Alias cleanup to heal for backwards compatibility
 program
   .command("cleanup")
-  .description("Clean up orphaned proxy entries and fix port conflicts")
+  .description("Alias for heal - clean up registry and heal unhealthy proxies")
   .action(async () => {
     try {
-      console.log(chalk.yellow("Cleaning up proxy registry..."));
-
-      // First reconcile with actual containers
-      await reconcileContainers();
-
-      // Get all containers that are actually running
-      const allContainers = await docker.listContainers({
-        all: true,
-        filters: { label: ["proxyfarm=true"] },
-      });
-      const runningContainerIds = new Set(allContainers.map((c) => c.Id));
-
-      // Get all proxies
-      let proxies = await registry.list();
-
-      // Remove entries for containers that don't exist
-      let removedMissing = 0;
-      for (const proxy of proxies) {
-        if (!runningContainerIds.has(proxy.containerId)) {
-          console.log(
-            chalk.yellow(
-              `Removing entry for missing container: ${proxy.id} (port ${proxy.port})`
-            )
-          );
-          await registry.remove(proxy.id);
-          removedMissing++;
-        }
-      }
-
-      if (removedMissing > 0) {
-        console.log(
-          chalk.green(
-            `✓ Removed ${removedMissing} entries for missing containers`
-          )
-        );
-        // Refresh the proxy list after cleanup
-        proxies = await registry.list();
-      }
-
-      const portMap = new Map<number, ProxyRecord[]>();
-
-      // Group by port to find duplicates
-      for (const proxy of proxies) {
-        if (!portMap.has(proxy.port)) {
-          portMap.set(proxy.port, []);
-        }
-        portMap.get(proxy.port)!.push(proxy);
-      }
-
-      // Find and remove duplicates
-      let removed = 0;
-      for (const [port, proxyList] of portMap) {
-        if (proxyList.length > 1) {
-          console.log(
-            chalk.yellow(
-              `Port ${port} has ${proxyList.length} entries. Cleaning up...`
-            )
-          );
-
-          // Sort by creation date, keep the oldest healthy one or just the oldest
-          proxyList.sort(
-            (a, b) =>
-              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-          const keep = proxyList.find((p) => p.healthy) || proxyList[0];
-
-          for (const proxy of proxyList) {
-            if (proxy.id !== keep.id) {
-              console.log(chalk.red(`  Removing duplicate: ${proxy.id}`));
-              await registry.remove(proxy.id);
-              removed++;
-            }
-          }
-        }
-      }
-
-      if (removed > 0) {
-        console.log(chalk.green(`✓ Removed ${removed} duplicate entries`));
-      } else {
-        console.log(chalk.green("✓ No duplicates found"));
-      }
-
-      // Now check for orphaned containers
-      const containerList = await docker.listContainers({
-        all: true,
-        filters: { label: ["proxyfarm=true"] },
-      });
-
-      const registeredIds = new Set(
-        (await registry.list()).map((p) => p.containerId)
-      );
-      let orphaned = 0;
-
-      for (const containerInfo of containerList) {
-        if (!registeredIds.has(containerInfo.Id)) {
-          console.log(
-            chalk.yellow(`Found orphaned container: ${containerInfo.Names[0]}`)
-          );
-          try {
-            const container = docker.getContainer(containerInfo.Id);
-            // Try to stop first, but ignore if already stopped
-            try {
-              await container.stop();
-            } catch (stopErr: any) {
-              // Ignore stop errors (container might already be stopped)
-            }
-            // Now remove the container
-            await container.remove();
-            orphaned++;
-            console.log(chalk.green(`  ✓ Removed`));
-          } catch (err: any) {
-            console.log(chalk.red(`  ✗ Failed to remove: ${err.message}`));
-          }
-        }
-      }
-
-      if (orphaned > 0) {
-        console.log(chalk.green(`✓ Removed ${orphaned} orphaned containers`));
-      } else {
-        console.log(chalk.green("✓ No orphaned containers found"));
-      }
+      console.log(chalk.cyan("Starting proxy maintenance..."));
+      console.log(chalk.gray("─".repeat(40)));
+      await healProxies();
     } catch (err: any) {
       console.error(chalk.red("Error:"), err.message);
       process.exit(1);

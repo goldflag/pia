@@ -57,30 +57,154 @@ export async function healthCheckAll(): Promise<HealthCheckResult[]> {
 }
 
 export async function healProxies(): Promise<void> {
-  const { rotateProxy } = await import('./docker');
-  const proxies = await registry.list();
-
+  const Docker = require('dockerode');
+  const docker = new Docker();
+  const { rotateProxy, removeProxy, reconcileContainers } = await import('./docker');
+  
+  console.log('Step 1: Reconciling with Docker containers...');
+  await reconcileContainers();
+  
+  // Get all containers that are actually running
+  const allContainers = await docker.listContainers({
+    all: true,
+    filters: { label: ['proxyfarm=true'] },
+  });
+  const runningContainerIds = new Set(allContainers.map((c: any) => c.Id));
+  
+  let proxies = await registry.list();
+  
+  // Step 2: Remove entries for containers that don't exist
+  console.log('Step 2: Removing entries for missing containers...');
+  let removedMissing = 0;
   for (const proxy of proxies) {
+    if (!runningContainerIds.has(proxy.containerId)) {
+      console.log(`  Removing entry for missing container: ${proxy.id} (port ${proxy.port})`);
+      await registry.remove(proxy.id);
+      removedMissing++;
+    }
+  }
+  
+  if (removedMissing > 0) {
+    console.log(`  ✓ Removed ${removedMissing} entries for missing containers`);
+    proxies = await registry.list();
+  } else {
+    console.log('  ✓ No missing containers found');
+  }
+  
+  // Step 3: Detect and remove duplicates with port conflicts
+  console.log('Step 3: Removing duplicate proxies...');
+  const portMap = new Map<number, typeof proxies[0][]>();
+  for (const proxy of proxies) {
+    if (!portMap.has(proxy.port)) {
+      portMap.set(proxy.port, []);
+    }
+    portMap.get(proxy.port)!.push(proxy);
+  }
+  
+  let removedDuplicates = 0;
+  for (const [port, proxyList] of portMap) {
+    if (proxyList.length > 1) {
+      console.log(`  Port ${port} has ${proxyList.length} entries, cleaning up...`);
+      
+      // Sort by creation date, keep the oldest healthy one or just the oldest
+      proxyList.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      const keep = proxyList.find((p) => p.healthy) || proxyList[0];
+      
+      for (const proxy of proxyList) {
+        if (proxy.id !== keep.id) {
+          console.log(`    Removing duplicate: ${proxy.id}`);
+          await registry.remove(proxy.id);
+          removedDuplicates++;
+        }
+      }
+    }
+  }
+  
+  if (removedDuplicates > 0) {
+    console.log(`  ✓ Removed ${removedDuplicates} duplicate entries`);
+  } else {
+    console.log('  ✓ No duplicates found');
+  }
+  
+  // Step 4: Remove orphaned containers
+  console.log('Step 4: Removing orphaned containers...');
+  const registeredIds = new Set(
+    (await registry.list()).map((p) => p.containerId)
+  );
+  let orphaned = 0;
+  
+  for (const containerInfo of allContainers) {
+    if (!registeredIds.has(containerInfo.Id)) {
+      console.log(`  Found orphaned container: ${containerInfo.Names[0]}`);
+      try {
+        const container = docker.getContainer(containerInfo.Id);
+        // Try to stop first, but ignore if already stopped
+        try {
+          await container.stop();
+        } catch (stopErr: any) {
+          // Ignore stop errors (container might already be stopped)
+        }
+        // Now remove the container
+        await container.remove();
+        orphaned++;
+        console.log(`    ✓ Removed`);
+      } catch (err: any) {
+        console.log(`    ✗ Failed to remove: ${err.message}`);
+      }
+    }
+  }
+  
+  if (orphaned > 0) {
+    console.log(`  ✓ Removed ${orphaned} orphaned containers`);
+  } else {
+    console.log('  ✓ No orphaned containers found');
+  }
+  
+  // Step 5: Heal remaining unhealthy proxies
+  console.log('Step 5: Healing unhealthy proxies...');
+  const updatedProxies = await registry.list();
+  let healed = 0;
+  let failed = 0;
+  
+  for (const proxy of updatedProxies) {
     if (!proxy.healthy) {
-      console.log(`Healing unhealthy proxy ${proxy.id}`);
+      console.log(`  Healing proxy ${proxy.id} (port ${proxy.port})...`);
       
       if (proxy.restarts >= 3) {
-        console.log(`Proxy ${proxy.id} has failed ${proxy.restarts} times, skipping`);
+        console.log(`    Skipped: failed ${proxy.restarts} times`);
         continue;
       }
 
       try {
         await rotateProxy(proxy.id);
-        console.log(`Restarted proxy ${proxy.id}`);
+        healed++;
+        console.log(`    ✓ Restarted`);
         
         await new Promise(resolve => setTimeout(resolve, 5000));
         
-        await checkProxyHealth(proxy.id);
+        const health = await checkProxyHealth(proxy.id);
+        if (health.healthy) {
+          console.log(`    ✓ Healthy - Exit IP: ${health.exitIp}`);
+        } else {
+          console.log(`    ✗ Still unhealthy: ${health.error}`);
+        }
       } catch (err: any) {
-        console.error(`Failed to heal proxy ${proxy.id}: ${err.message}`);
+        failed++;
+        console.error(`    ✗ Failed: ${err.message}`);
       }
     }
   }
+  
+  if (healed > 0 || failed > 0) {
+    console.log(`  ✓ Healed ${healed} proxies${failed > 0 ? `, ${failed} failed` : ''}`);
+  } else {
+    console.log('  ✓ All proxies are healthy');
+  }
+  
+  console.log('\n✓ Maintenance complete');
 }
 
 let healthCheckInterval: NodeJS.Timeout | null = null;

@@ -93,7 +93,7 @@ pf add 5 --country US --city "New York"  # Creates 5 proxies in specific locatio
 pf ls
 pf rm <id>
 pf rotate <id>
-pf heal
+pf heal  # Cleans up registry and heals unhealthy proxies
 pf status
 ```
 
