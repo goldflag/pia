@@ -8,7 +8,7 @@ const docker = new Docker();
 
 export async function createProxy(options: CreateProxyOptions = {}): Promise<ProxyRecord> {
   const id = randomUUID();
-  const port = await registry.allocatePort();
+  const port = options.port || await registry.allocatePort();
   
   const country = options.country || config.defaultCountry;
   const city = options.city || config.defaultCity;

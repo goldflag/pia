@@ -34,4 +34,5 @@ export interface CreateProxyOptions {
   country?: string;
   city?: string;
   notes?: string;
+  port?: number; // Optional pre-allocated port
 }

@@ -70,16 +70,30 @@ program
       console.log(chalk.yellow(`Creating ${count} proxies...`));
 
       const proxies = [];
+      const failedPorts = new Set<number>(); // Track ports that failed to avoid reuse
+      
       for (let i = 0; i < count; i++) {
         try {
-          const proxy = await createProxy({
-            country: options.country,
-            city: options.city,
-          });
-          proxies.push(proxy);
-          console.log(
-            chalk.green(`✓ Created proxy ${i + 1}/${count}: port ${proxy.port}`)
-          );
+          // Get a port that's not already used or failed
+          const usedPorts = await registry.getUsedPorts();
+          const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
+          const port = await registry.allocatePort(allReservedPorts);
+          
+          try {
+            const proxy = await createProxy({
+              country: options.country,
+              city: options.city,
+              port, // Pass the pre-allocated port
+            });
+            proxies.push(proxy);
+            console.log(
+              chalk.green(`✓ Created proxy ${i + 1}/${count}: port ${proxy.port}`)
+            );
+          } catch (err: any) {
+            // If creation failed, remember this port to not reuse it
+            failedPorts.add(port);
+            throw err;
+          }
         } catch (err: any) {
           console.log(
             chalk.red(`✗ Failed to create proxy ${i + 1}: ${err.message}`)
