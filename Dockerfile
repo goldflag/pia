@@ -18,12 +18,21 @@ COPY src ./src
 # Build the TypeScript code
 RUN npm run build
 
+# Verify build output exists
+RUN ls -la /app/dist/ && test -f /app/dist/cli.js
+
 # Remove dev dependencies after build
 RUN npm prune --production
+
+# Verify dist still exists after prune
+RUN ls -la /app/dist/ && test -f /app/dist/cli.js
 
 # Copy CLI binary
 COPY bin ./bin
 RUN chmod +x bin/pf
+
+# Debug: Check the file structure
+RUN echo "=== Checking /app structure ===" && ls -la /app/ && echo "=== Checking bin/pf ===" && cat /app/bin/pf
 
 # Create data directory
 RUN mkdir -p /app/data
