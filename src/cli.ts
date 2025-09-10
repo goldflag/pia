@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import Table from "cli-table3";
+import Docker from "dockerode";
 import {
   createProxy,
   removeProxy,
@@ -12,6 +13,9 @@ import {
 import { registry } from "./registry";
 import { checkProxyHealth, healProxies } from "./health";
 import { validateConfig } from "./config";
+import { ProxyRecord } from "./types";
+
+const docker = new Docker();
 
 const program = new Command();
 
@@ -71,14 +75,14 @@ program
 
       const proxies = [];
       const failedPorts = new Set<number>(); // Track ports that failed to avoid reuse
-      
+
       for (let i = 0; i < count; i++) {
         try {
           // Get a port that's not already used or failed
           const usedPorts = await registry.getUsedPorts();
           const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
           const port = await registry.allocatePort(allReservedPorts);
-          
+
           try {
             const proxy = await createProxy({
               country: options.country,
@@ -87,7 +91,9 @@ program
             });
             proxies.push(proxy);
             console.log(
-              chalk.green(`✓ Created proxy ${i + 1}/${count}: port ${proxy.port}`)
+              chalk.green(
+                `✓ Created proxy ${i + 1}/${count}: port ${proxy.port}`
+              )
             );
           } catch (err: any) {
             // If creation failed, remember this port to not reuse it
@@ -337,6 +343,100 @@ program
       const countries = new Set(proxies.map((p) => p.country).filter(Boolean));
       if (countries.size > 0) {
         console.log(`Countries: ${Array.from(countries).join(", ")}`);
+      }
+    } catch (err: any) {
+      console.error(chalk.red("Error:"), err.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("cleanup")
+  .description("Clean up orphaned proxy entries and fix port conflicts")
+  .action(async () => {
+    try {
+      console.log(chalk.yellow("Cleaning up proxy registry..."));
+
+      // First reconcile with actual containers
+      await reconcileContainers();
+
+      // Get all proxies
+      const proxies = await registry.list();
+      const portMap = new Map<number, ProxyRecord[]>();
+
+      // Group by port to find duplicates
+      for (const proxy of proxies) {
+        if (!portMap.has(proxy.port)) {
+          portMap.set(proxy.port, []);
+        }
+        portMap.get(proxy.port)!.push(proxy);
+      }
+
+      // Find and remove duplicates
+      let removed = 0;
+      for (const [port, proxyList] of portMap) {
+        if (proxyList.length > 1) {
+          console.log(
+            chalk.yellow(
+              `Port ${port} has ${proxyList.length} entries. Cleaning up...`
+            )
+          );
+
+          // Sort by creation date, keep the oldest healthy one or just the oldest
+          proxyList.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          const keep = proxyList.find((p) => p.healthy) || proxyList[0];
+
+          for (const proxy of proxyList) {
+            if (proxy.id !== keep.id) {
+              console.log(chalk.red(`  Removing duplicate: ${proxy.id}`));
+              await registry.remove(proxy.id);
+              removed++;
+            }
+          }
+        }
+      }
+
+      if (removed > 0) {
+        console.log(chalk.green(`✓ Removed ${removed} duplicate entries`));
+      } else {
+        console.log(chalk.green("✓ No duplicates found"));
+      }
+
+      // Now check for orphaned containers
+      const containerList = await docker.listContainers({
+        all: true,
+        filters: { label: ["proxyfarm=true"] },
+      });
+
+      const registeredIds = new Set(
+        (await registry.list()).map((p) => p.containerId)
+      );
+      let orphaned = 0;
+
+      for (const containerInfo of containerList) {
+        if (!registeredIds.has(containerInfo.Id)) {
+          console.log(
+            chalk.yellow(`Found orphaned container: ${containerInfo.Names[0]}`)
+          );
+          try {
+            const container = docker.getContainer(containerInfo.Id);
+            await container.stop();
+            await container.remove();
+            orphaned++;
+            console.log(chalk.green(`  ✓ Removed`));
+          } catch (err: any) {
+            console.log(chalk.red(`  ✗ Failed to remove: ${err.message}`));
+          }
+        }
+      }
+
+      if (orphaned > 0) {
+        console.log(chalk.green(`✓ Removed ${orphaned} orphaned containers`));
+      } else {
+        console.log(chalk.green("✓ No orphaned containers found"));
       }
     } catch (err: any) {
       console.error(chalk.red("Error:"), err.message);
