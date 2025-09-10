@@ -50,6 +50,10 @@ update_code() {
     docker compose stop proxyfarm 2>/dev/null || true
     docker compose rm -f proxyfarm 2>/dev/null || true
     
+    # Clean local dist to ensure Docker builds fresh (not copies old build)
+    print_color "Cleaning local build artifacts..." "$YELLOW"
+    rm -rf dist/ 2>/dev/null || true
+    
     # Rebuild manager image only (Docker will build TypeScript inside)
     print_color "Rebuilding manager Docker image..." "$YELLOW"
     docker compose build --no-cache proxyfarm
@@ -120,6 +124,10 @@ rebuild_all() {
     print_color "Cleaning data directory..." "$YELLOW"
     rm -rf data/*
     mkdir -p data
+    
+    # Clean local dist to ensure Docker builds fresh
+    print_color "Cleaning local build artifacts..." "$YELLOW"
+    rm -rf dist/ 2>/dev/null || true
     
     # Build Docker image from scratch (Docker will build TypeScript inside)
     print_color "Building Docker image from scratch..." "$YELLOW"

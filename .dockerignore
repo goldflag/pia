@@ -13,3 +13,4 @@ keys/
 docker-compose*.yml
 Dockerfile
 start.sh
+dist/
