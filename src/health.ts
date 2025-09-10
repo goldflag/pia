@@ -3,7 +3,7 @@ import { fetchExitIp } from "./docker";
 import { config } from "./config";
 import * as http from "http";
 
-interface HealthCheckResult {
+export interface HealthCheckResult {
   proxyId: string;
   healthy: boolean;
   exitIp?: string;
@@ -48,14 +48,40 @@ export async function checkProxyHealth(
 
 export async function healthCheckAll(): Promise<HealthCheckResult[]> {
   const proxies = await registry.list();
-  const results: HealthCheckResult[] = [];
-
-  for (const proxy of proxies) {
-    const result = await checkProxyHealth(proxy.id);
-    results.push(result);
-  }
+  
+  // Check all proxies in parallel
+  const results = await Promise.all(
+    proxies.map(proxy => 
+      checkProxyHealth(proxy.id).catch(err => ({
+        proxyId: proxy.id,
+        healthy: false,
+        error: err.message
+      }))
+    )
+  );
 
   return results;
+}
+
+export async function bulkHealthCheck(proxyIds: string[]): Promise<Map<string, HealthCheckResult>> {
+  // Check all proxies in parallel
+  const results = await Promise.all(
+    proxyIds.map(id => 
+      checkProxyHealth(id).catch(err => ({
+        proxyId: id,
+        healthy: false,
+        error: err.message
+      }))
+    )
+  );
+  
+  // Return as a map for easy lookup
+  const resultMap = new Map<string, HealthCheckResult>();
+  for (const result of results) {
+    resultMap.set(result.proxyId, result);
+  }
+  
+  return resultMap;
 }
 
 export async function healProxies(): Promise<void> {
@@ -174,15 +200,25 @@ export async function healProxies(): Promise<void> {
   const updatedProxies = await registry.list();
   let healed = 0;
   let failed = 0;
-  let unhealthyCount = 0;
   
-  // First, do a fresh health check on all proxies
-  console.log("  Running fresh health checks...");
-  for (const proxy of updatedProxies) {
-    const health = await checkProxyHealth(proxy.id);
-    if (!health.healthy) {
-      unhealthyCount++;
-      console.log(`  Found unhealthy proxy: ${proxy.id} (port ${proxy.port}) - ${health.error}`);
+  // Do a fresh health check on all proxies in parallel
+  console.log("  Running fresh health checks on all proxies...");
+  const healthResults = await bulkHealthCheck(updatedProxies.map(p => p.id));
+  
+  // Find unhealthy proxies
+  const unhealthyProxies = updatedProxies.filter(proxy => {
+    const health = healthResults.get(proxy.id);
+    return health && !health.healthy;
+  });
+  
+  const unhealthyCount = unhealthyProxies.length;
+  
+  if (unhealthyCount > 0) {
+    console.log(`  Found ${unhealthyCount} unhealthy proxies`);
+    
+    for (const proxy of unhealthyProxies) {
+      const health = healthResults.get(proxy.id)!;
+      console.log(`  Unhealthy proxy: ${proxy.id} (port ${proxy.port}) - ${health.error}`);
       
       if (proxy.restarts >= 3) {
         console.log(`    Skipped: failed ${proxy.restarts} times`);
