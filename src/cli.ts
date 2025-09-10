@@ -22,16 +22,15 @@ const program = new Command();
 program.name("pf").description("PIA WireGuard Proxy Farm CLI").version("1.0.0");
 
 program
-  .command("add")
+  .command("add [count]")
   .description("Create proxies")
-  .option("--count <count>", "Number of proxies to create", "1")
   .option("--country <country>", "Country code")
   .option("--city <city>", "City name")
-  .action(async (options) => {
+  .action(async (countArg, options) => {
     try {
       validateConfig();
 
-      const count = parseInt(options.count, 10);
+      const count = countArg ? parseInt(countArg, 10) : 1;
       console.log(chalk.yellow(`Creating ${count} proxies...`));
 
       const proxies = [];
@@ -45,14 +44,15 @@ program
         
         console.log(chalk.yellow(`Creating batch of ${batchCount} proxies (${batchStart + 1}-${batchEnd} of ${count})...`));
         
-        // Pre-allocate ports for the batch
+        // Pre-allocate ports for the batch - refresh used ports for each batch
         const batchPorts: number[] = [];
-        const usedPorts = await registry.getUsedPorts();
-        const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
         
         for (let j = 0; j < batchCount; j++) {
           try {
-            const port = await registry.allocatePort(new Set([...allReservedPorts, ...batchPorts]));
+            // Get fresh list of used ports for each allocation
+            const usedPorts = await registry.getUsedPorts();
+            const allReservedPorts = new Set([...usedPorts, ...failedPorts, ...batchPorts]);
+            const port = await registry.allocatePort(allReservedPorts);
             batchPorts.push(port);
           } catch (err: any) {
             console.log(chalk.red(`Failed to allocate port for proxy ${batchStart + j + 1}: ${err.message}`));

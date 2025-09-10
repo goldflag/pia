@@ -70,7 +70,31 @@ class Registry {
   }
 
   async getUsedPorts(): Promise<Set<number>> {
-    return new Set(Array.from(this.data.values()).map(p => p.port));
+    // Get ports from registry
+    const registryPorts = new Set(Array.from(this.data.values()).map(p => p.port));
+    
+    // Also check actual Docker containers to avoid conflicts
+    try {
+      const Docker = require('dockerode');
+      const docker = new Docker();
+      const containers = await docker.listContainers({
+        all: true,
+        filters: { label: ['proxyfarm=true'] }
+      });
+      
+      // Add ports from actual containers
+      for (const container of containers) {
+        const portLabel = container.Labels['proxyfarm.port'];
+        if (portLabel) {
+          registryPorts.add(parseInt(portLabel, 10));
+        }
+      }
+    } catch (err) {
+      // If we can't check Docker, just use registry ports
+      console.warn('Could not check Docker containers for ports:', err);
+    }
+    
+    return registryPorts;
   }
 
   async allocatePort(exclude?: Set<number>): Promise<number> {
