@@ -22,17 +22,76 @@ show_help() {
     echo "Usage: ./manage.sh [command]"
     echo ""
     echo "Commands:"
+    echo "  start       - Start the proxy farm (initial setup)"
     echo "  update      - Update code and restart manager (keeps proxies running)"
     echo "  reset       - Remove all proxies and data, keep images"
     echo "  rebuild     - Complete rebuild: remove everything and start fresh"
     echo "  clean       - Same as rebuild but also removes Docker images"
     echo ""
     echo "Examples:"
+    echo "  ./manage.sh start     # Initial setup and start"
     echo "  ./manage.sh update    # Deploy new code without losing proxies"
     echo "  ./manage.sh reset     # Clear all proxies but keep Docker images"
     echo "  ./manage.sh rebuild   # Full rebuild from scratch"
     echo "  ./manage.sh clean     # Nuclear option - remove everything"
     exit 0
+}
+
+# Start the proxy farm (initial setup)
+start_farm() {
+    print_color "🚀 Starting PIA Proxy Farm..." "$GREEN"
+    
+    # Check if .env exists
+    if [ ! -f .env ]; then
+        print_color "❌ Error: .env file not found!" "$RED"
+        echo "Please copy .env.example to .env and configure your PIA credentials:"
+        echo "  cp .env.example .env"
+        echo "  vim .env  # Add your PIA_USERNAME and PIA_PASSWORD"
+        exit 1
+    fi
+    
+    # Check if PIA credentials are configured
+    source .env
+    if [[ -z "$PIA_USERNAME" || "$PIA_USERNAME" == "your_username_here" ]]; then
+        print_color "❌ Error: PIA credentials not configured!" "$RED"
+        echo "Please edit .env and add your PIA_USERNAME and PIA_PASSWORD"
+        exit 1
+    fi
+    
+    # Create necessary directories
+    mkdir -p data keys
+    
+    # Pull required images
+    print_color "📦 Pulling Docker images..." "$YELLOW"
+    docker pull qmcgaw/gluetun:latest
+    docker pull curlimages/curl:latest
+    
+    # Clean local dist to ensure Docker builds fresh
+    print_color "Cleaning local build artifacts..." "$YELLOW"
+    rm -rf dist/ 2>/dev/null || true
+    
+    # Start the proxy farm
+    print_color "🔧 Starting services..." "$YELLOW"
+    docker compose up -d
+    
+    # Wait for service to be ready
+    print_color "⏳ Waiting for service to initialize..." "$YELLOW"
+    sleep 5
+    
+    # Show status
+    print_color "✅ Proxy Farm is running!" "$GREEN"
+    echo ""
+    echo "Available commands:"
+    echo "  docker exec proxyfarm-manager pf add --country US        # Add a proxy"
+    echo "  docker exec proxyfarm-manager pf up --count 5            # Add 5 proxies"
+    echo "  docker exec proxyfarm-manager pf ls                      # List proxies"
+    echo "  docker exec proxyfarm-manager pf status                  # System status"
+    echo ""
+    echo "View logs:"
+    echo "  docker compose logs -f proxyfarm"
+    echo ""
+    echo "Stop the farm:"
+    echo "  docker compose down"
 }
 
 # Update code without removing proxies
@@ -99,7 +158,7 @@ reset_proxies() {
     echo "  - Registry data"
     echo ""
     echo "To start fresh:"
-    echo "  1. Run: ./start.sh"
+    echo "  1. Run: ./manage.sh start"
     echo "  2. Create proxies: docker exec proxyfarm-manager pf up --count 5"
 }
 
@@ -169,11 +228,14 @@ clean_everything() {
     docker builder prune -af 2>/dev/null || true
     
     print_color "✅ Complete cleanup done!" "$GREEN"
-    echo "Everything has been removed. Start from scratch with ./start.sh"
+    echo "Everything has been removed. Start from scratch with ./manage.sh start"
 }
 
 # Main script logic
 case "${1}" in
+    start)
+        start_farm
+        ;;
     update)
         update_code
         ;;

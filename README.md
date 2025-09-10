@@ -12,10 +12,8 @@ vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
 
 2. Start the proxy farm:
 ```bash
-./start.sh
+./manage.sh start
 ```
-
-For subsequent operations, use `./manage.sh` (see Management Commands section).
 
 3. Create proxies:
 ```bash
@@ -183,9 +181,10 @@ services:
 
 ### Management Commands
 
-Use the `manage.sh` script for all maintenance operations:
+Use the `manage.sh` script for all operations:
 
 ```bash
+./manage.sh start    # Initial setup and start the proxy farm
 ./manage.sh update   # Update code without removing proxies
 ./manage.sh reset    # Remove all proxies and data, keep Docker images
 ./manage.sh rebuild  # Complete rebuild from scratch
@@ -194,6 +193,7 @@ Use the `manage.sh` script for all maintenance operations:
 ```
 
 **Examples:**
+- First time setup: `./manage.sh start`
 - Deploy new code changes: `./manage.sh update`
 - Start fresh but keep images cached: `./manage.sh reset`
 - Fix persistent issues: `./manage.sh rebuild`
