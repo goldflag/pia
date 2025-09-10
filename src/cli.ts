@@ -23,46 +23,7 @@ program.name("pf").description("PIA WireGuard Proxy Farm CLI").version("1.0.0");
 
 program
   .command("add")
-  .description("Create a new proxy")
-  .option("--country <country>", "Country code (e.g., US)")
-  .option("--city <city>", "City name")
-  .option("--notes <notes>", "Additional notes")
-  .action(async (options) => {
-    try {
-      validateConfig();
-
-      console.log(chalk.yellow("Creating proxy..."));
-      const proxy = await createProxy(options);
-
-      console.log(chalk.green("Proxy created successfully!"));
-      console.log(chalk.gray("ID:"), proxy.id);
-      console.log(chalk.gray("Port:"), proxy.port);
-      console.log(
-        chalk.gray("Region:"),
-        `${proxy.country || "Auto"}/${proxy.city || "Auto"}`
-      );
-
-      console.log(chalk.yellow("\nWaiting for VPN connection..."));
-      await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
-
-      console.log(chalk.yellow("Checking health..."));
-      const health = await checkProxyHealth(proxy.id);
-
-      if (health.healthy) {
-        console.log(chalk.green("✓ Healthy"));
-        console.log(chalk.gray("Exit IP:"), health.exitIp);
-      } else {
-        console.log(chalk.red("✗ Unhealthy:"), health.error);
-      }
-    } catch (err: any) {
-      console.error(chalk.red("Error:"), err.message);
-      process.exit(1);
-    }
-  });
-
-program
-  .command("up")
-  .description("Bulk create proxies")
+  .description("Create proxies")
   .option("--count <count>", "Number of proxies to create", "1")
   .option("--country <country>", "Country code")
   .option("--city <city>", "City name")
@@ -75,37 +36,57 @@ program
 
       const proxies = [];
       const failedPorts = new Set<number>(); // Track ports that failed to avoid reuse
+      const BATCH_SIZE = 50;
 
-      for (let i = 0; i < count; i++) {
-        try {
-          // Get a port that's not already used or failed
-          const usedPorts = await registry.getUsedPorts();
-          console.log(chalk.gray("Used ports:"), usedPorts);
-          const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
-          const port = await registry.allocatePort(allReservedPorts);
-
+      // Process in batches
+      for (let batchStart = 0; batchStart < count; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, count);
+        const batchCount = batchEnd - batchStart;
+        
+        console.log(chalk.yellow(`Creating batch of ${batchCount} proxies (${batchStart + 1}-${batchEnd} of ${count})...`));
+        
+        // Pre-allocate ports for the batch
+        const batchPorts: number[] = [];
+        const usedPorts = await registry.getUsedPorts();
+        const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
+        
+        for (let j = 0; j < batchCount; j++) {
+          try {
+            const port = await registry.allocatePort(new Set([...allReservedPorts, ...batchPorts]));
+            batchPorts.push(port);
+          } catch (err: any) {
+            console.log(chalk.red(`Failed to allocate port for proxy ${batchStart + j + 1}: ${err.message}`));
+          }
+        }
+        
+        // Create proxies in parallel for this batch
+        const batchPromises = batchPorts.map(async (port, index) => {
           try {
             const proxy = await createProxy({
               country: options.country,
               city: options.city,
               port, // Pass the pre-allocated port
             });
-            proxies.push(proxy);
             console.log(
               chalk.green(
-                `✓ Created proxy ${i + 1}/${count}: port ${proxy.port}`
+                `✓ Created proxy ${batchStart + index + 1}/${count}: port ${proxy.port}`
               )
             );
+            return proxy;
           } catch (err: any) {
             // If creation failed, remember this port to not reuse it
             failedPorts.add(port);
-            throw err;
+            console.log(
+              chalk.red(`✗ Failed to create proxy ${batchStart + index + 1}: ${err.message}`)
+            );
+            return null;
           }
-        } catch (err: any) {
-          console.log(
-            chalk.red(`✗ Failed to create proxy ${i + 1}: ${err.message}`)
-          );
-        }
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        proxies.push(...batchResults.filter(p => p !== null));
+        
+        console.log(chalk.green(`Batch complete: ${batchResults.filter(p => p !== null).length} proxies created successfully`));
       }
 
       console.log(

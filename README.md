@@ -17,11 +17,9 @@ vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
 
 3. Create proxies:
 ```bash
-# Add a single proxy (auto-selects best PIA server)
-docker exec proxyfarm-manager pf add
-
-# Add multiple proxies
-docker exec proxyfarm-manager pf up --count 10
+# Add proxies (auto-selects best PIA server)
+docker exec proxyfarm-manager pf add  # Creates 1 proxy by default
+docker exec proxyfarm-manager pf add --count 10  # Creates 10 proxies
 
 # List all proxies
 docker exec proxyfarm-manager pf ls
@@ -60,8 +58,8 @@ Note: The Docker setup handles TypeScript compilation automatically, so `npm run
 docker-compose up -d
 
 # Create proxies
-docker exec proxyfarm-manager pf add --country US --city "New York"
-docker exec proxyfarm-manager pf up --count 10 --country US
+docker exec proxyfarm-manager pf add --country US --city "New York"  # Creates 1 proxy
+docker exec proxyfarm-manager pf add --count 10 --country US  # Creates 10 proxies
 
 # List proxies
 docker exec proxyfarm-manager pf ls
@@ -89,8 +87,8 @@ docker-compose down
 
 When running directly on host:
 ```bash
-pf add --country US --city "New York"
-pf up --count 10 --country US
+pf add --country US --city "New York"  # Creates 1 proxy
+pf add --count 10 --country US  # Creates 10 proxies
 pf ls
 pf rm <id>
 pf rotate <id>
