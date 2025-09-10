@@ -80,6 +80,7 @@ program
         try {
           // Get a port that's not already used or failed
           const usedPorts = await registry.getUsedPorts();
+          console.log(chalk.gray("Used ports:"), usedPorts);
           const allReservedPorts = new Set([...usedPorts, ...failedPorts]);
           const port = await registry.allocatePort(allReservedPorts);
 
@@ -361,27 +362,35 @@ program
       await reconcileContainers();
 
       // Get all containers that are actually running
-      const allContainers = await docker.listContainers({ 
+      const allContainers = await docker.listContainers({
         all: true,
-        filters: { label: ["proxyfarm=true"] }
+        filters: { label: ["proxyfarm=true"] },
       });
-      const runningContainerIds = new Set(allContainers.map(c => c.Id));
-      
+      const runningContainerIds = new Set(allContainers.map((c) => c.Id));
+
       // Get all proxies
       let proxies = await registry.list();
-      
+
       // Remove entries for containers that don't exist
       let removedMissing = 0;
       for (const proxy of proxies) {
         if (!runningContainerIds.has(proxy.containerId)) {
-          console.log(chalk.yellow(`Removing entry for missing container: ${proxy.id} (port ${proxy.port})`));
+          console.log(
+            chalk.yellow(
+              `Removing entry for missing container: ${proxy.id} (port ${proxy.port})`
+            )
+          );
           await registry.remove(proxy.id);
           removedMissing++;
         }
       }
-      
+
       if (removedMissing > 0) {
-        console.log(chalk.green(`✓ Removed ${removedMissing} entries for missing containers`));
+        console.log(
+          chalk.green(
+            `✓ Removed ${removedMissing} entries for missing containers`
+          )
+        );
         // Refresh the proxy list after cleanup
         proxies = await registry.list();
       }
