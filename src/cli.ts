@@ -1,21 +1,17 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
 import chalk from "chalk";
 import Table from "cli-table3";
-import Docker from "dockerode";
+import { Command } from "commander";
+import { validateConfig } from "./config";
 import {
   createProxy,
+  reconcileContainers,
   removeProxy,
   rotateProxy,
-  reconcileContainers,
 } from "./docker";
-import { registry } from "./registry";
 import { checkProxyHealth, healProxies } from "./health";
-import { validateConfig } from "./config";
-import { ProxyRecord } from "./types";
-
-const docker = new Docker();
+import { registry } from "./registry";
 
 const program = new Command();
 
@@ -41,24 +37,40 @@ program
       for (let batchStart = 0; batchStart < count; batchStart += BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, count);
         const batchCount = batchEnd - batchStart;
-        
-        console.log(chalk.yellow(`Creating batch of ${batchCount} proxies (${batchStart + 1}-${batchEnd} of ${count})...`));
-        
+
+        console.log(
+          chalk.yellow(
+            `Creating batch of ${batchCount} proxies (${
+              batchStart + 1
+            }-${batchEnd} of ${count})...`
+          )
+        );
+
         // Pre-allocate ports for the batch - refresh used ports for each batch
         const batchPorts: number[] = [];
-        
+
         for (let j = 0; j < batchCount; j++) {
           try {
             // Get fresh list of used ports for each allocation
             const usedPorts = await registry.getUsedPorts();
-            const allReservedPorts = new Set([...usedPorts, ...failedPorts, ...batchPorts]);
+            const allReservedPorts = new Set([
+              ...usedPorts,
+              ...failedPorts,
+              ...batchPorts,
+            ]);
             const port = await registry.allocatePort(allReservedPorts);
             batchPorts.push(port);
           } catch (err: any) {
-            console.log(chalk.red(`Failed to allocate port for proxy ${batchStart + j + 1}: ${err.message}`));
+            console.log(
+              chalk.red(
+                `Failed to allocate port for proxy ${batchStart + j + 1}: ${
+                  err.message
+                }`
+              )
+            );
           }
         }
-        
+
         // Create proxies in parallel for this batch
         const batchPromises = batchPorts.map(async (port, index) => {
           try {
@@ -69,7 +81,9 @@ program
             });
             console.log(
               chalk.green(
-                `✓ Created proxy ${batchStart + index + 1}/${count}: port ${proxy.port}`
+                `✓ Created proxy ${batchStart + index + 1}/${count}: port ${
+                  proxy.port
+                }`
               )
             );
             return proxy;
@@ -77,16 +91,26 @@ program
             // If creation failed, remember this port to not reuse it
             failedPorts.add(port);
             console.log(
-              chalk.red(`✗ Failed to create proxy ${batchStart + index + 1}: ${err.message}`)
+              chalk.red(
+                `✗ Failed to create proxy ${batchStart + index + 1}: ${
+                  err.message
+                }`
+              )
             );
             return null;
           }
         });
-        
+
         const batchResults = await Promise.all(batchPromises);
-        proxies.push(...batchResults.filter(p => p !== null));
-        
-        console.log(chalk.green(`Batch complete: ${batchResults.filter(p => p !== null).length} proxies created successfully`));
+        proxies.push(...batchResults.filter((p) => p !== null));
+
+        console.log(
+          chalk.green(
+            `Batch complete: ${
+              batchResults.filter((p) => p !== null).length
+            } proxies created successfully`
+          )
+        );
       }
 
       console.log(
