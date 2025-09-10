@@ -169,47 +169,55 @@ export async function healProxies(): Promise<void> {
     console.log("  ✓ No orphaned containers found");
   }
 
-  // Step 5: Heal remaining unhealthy proxies
-  console.log("Step 5: Healing unhealthy proxies...");
+  // Step 5: Check current health and heal unhealthy proxies
+  console.log("Step 5: Checking health and healing unhealthy proxies...");
   const updatedProxies = await registry.list();
   let healed = 0;
   let failed = 0;
-
+  let unhealthyCount = 0;
+  
+  // First, do a fresh health check on all proxies
+  console.log("  Running fresh health checks...");
   for (const proxy of updatedProxies) {
-    if (!proxy.healthy) {
-      console.log(`  Healing proxy ${proxy.id} (port ${proxy.port})...`);
-
+    const health = await checkProxyHealth(proxy.id);
+    if (!health.healthy) {
+      unhealthyCount++;
+      console.log(`  Found unhealthy proxy: ${proxy.id} (port ${proxy.port}) - ${health.error}`);
+      
       if (proxy.restarts >= 3) {
         console.log(`    Skipped: failed ${proxy.restarts} times`);
         continue;
       }
 
       try {
+        console.log(`    Restarting proxy...`);
         await rotateProxy(proxy.id);
         healed++;
         console.log(`    ✓ Restarted`);
-
+        
         await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        const health = await checkProxyHealth(proxy.id);
-        if (health.healthy) {
-          console.log(`    ✓ Healthy - Exit IP: ${health.exitIp}`);
+        
+        const newHealth = await checkProxyHealth(proxy.id);
+        if (newHealth.healthy) {
+          console.log(`    ✓ Now healthy - Exit IP: ${newHealth.exitIp}`);
         } else {
-          console.log(`    ✗ Still unhealthy: ${health.error}`);
+          console.log(`    ✗ Still unhealthy: ${newHealth.error}`);
         }
       } catch (err: any) {
         failed++;
-        console.error(`    ✗ Failed: ${err.message}`);
+        console.error(`    ✗ Failed to restart: ${err.message}`);
       }
     }
   }
 
-  if (healed > 0 || failed > 0) {
+  if (unhealthyCount === 0) {
+    console.log("  ✓ All proxies are healthy");
+  } else if (healed > 0 || failed > 0) {
     console.log(
-      `  ✓ Healed ${healed} proxies${failed > 0 ? `, ${failed} failed` : ""}`
+      `  ✓ Found ${unhealthyCount} unhealthy, healed ${healed} proxies${failed > 0 ? `, ${failed} failed` : ""}`
     );
   } else {
-    console.log("  ✓ All proxies are healthy");
+    console.log(`  Found ${unhealthyCount} unhealthy proxies but none were healed (may have exceeded restart limit)`);
   }
 
   console.log("\n✓ Maintenance complete");
