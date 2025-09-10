@@ -15,6 +15,8 @@ vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
 ./start.sh
 ```
 
+For subsequent operations, use `./manage.sh` (see Management Commands section).
+
 3. Create proxies:
 ```bash
 # Add a single proxy (auto-selects best PIA server)
@@ -29,7 +31,9 @@ docker exec proxyfarm-manager pf ls
 # Note: Region selection is stored but not enforced due to Gluetun/PIA limitations
 ```
 
-## Manual Setup (Development)
+## Development
+
+For local development without Docker:
 
 1. Install dependencies:
 ```bash
@@ -42,10 +46,12 @@ cp .env.example .env
 # Edit .env with your PIA credentials
 ```
 
-3. Build:
+3. Build TypeScript:
 ```bash
 npm run build
 ```
+
+Note: The Docker setup handles TypeScript compilation automatically, so `npm run build` is only needed for local development.
 
 ## Usage
 
@@ -175,9 +181,20 @@ services:
 - Verify Docker has sufficient resources
 - Check logs: `docker logs pf_CONTAINER_ID`
 
-### Reset everything
+### Management Commands
+
+Use the `manage.sh` script for all maintenance operations:
+
 ```bash
-./reset.sh              # Remove containers, keep images
-./reset.sh --clean-images  # Remove everything
-./rebuild.sh            # Complete rebuild from scratch
+./manage.sh update   # Update code without removing proxies
+./manage.sh reset    # Remove all proxies and data, keep Docker images
+./manage.sh rebuild  # Complete rebuild from scratch
+./manage.sh clean    # Nuclear option - remove everything including images
+./manage.sh help     # Show all available commands
 ```
+
+**Examples:**
+- Deploy new code changes: `./manage.sh update`
+- Start fresh but keep images cached: `./manage.sh reset`
+- Fix persistent issues: `./manage.sh rebuild`
+- Complete cleanup: `./manage.sh clean`
