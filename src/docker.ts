@@ -33,12 +33,27 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     throw new Error('PIA requires username and password for OpenVPN');
   }
 
-  // PIA with Gluetun - let's not specify regions for now
-  // as Gluetun seems to have issues with PIA region selection
-  // It will auto-select the best server
-  
-  // Store region info in labels for reference only
-  const regionLabel = country && city ? `${country}-${city}` : 
+  // Configure region selection for PIA with Gluetun
+  // If country is specified, use it to filter servers
+  if (country) {
+    // For USA, we need to use the proper PIA region codes
+    if (country.toLowerCase() === 'us' || country.toLowerCase() === 'usa') {
+      // PIA uses specific region codes for USA servers
+      env.push('SERVER_REGIONS=US Atlanta,US California,US Chicago,US Dallas,US Denver,US East,US Florida,US Houston,US Las Vegas,US New York,US Seattle,US Silicon Valley,US Washington DC,US West');
+    } else {
+      // For other countries, pass the country code
+      env.push(`SERVER_REGIONS=${country}`);
+    }
+  }
+
+  // If city is specified along with country, try to use more specific region
+  if (country && city) {
+    const regionString = `${country} ${city}`;
+    env.push(`SERVER_REGIONS=${regionString}`);
+  }
+
+  // Store region info in labels for reference
+  const regionLabel = country && city ? `${country}-${city}` :
                       country ? country : 'auto';
 
   const containerInfo = await docker.createContainer({

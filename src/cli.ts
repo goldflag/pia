@@ -19,8 +19,8 @@ program.name("pf").description("PIA WireGuard Proxy Farm CLI").version("1.0.0");
 
 program
   .command("add [count]")
-  .description("Create proxies")
-  .option("--country <country>", "Country code")
+  .description("Create proxies (defaults to US servers)")
+  .option("--country <country>", "Country code (default: US)")
   .option("--city <city>", "City name")
   .action(async (countArg, options) => {
     try {

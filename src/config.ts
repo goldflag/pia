@@ -11,7 +11,7 @@ export const config: Config = {
   piaPassword: process.env.PIA_PASSWORD,
   piaToken: undefined, // PIA with Gluetun uses OpenVPN only
   piaWgKeysDir: undefined, // Not used with OpenVPN
-  defaultCountry: process.env.DEFAULT_COUNTRY,
+  defaultCountry: process.env.DEFAULT_COUNTRY || 'US',
   defaultCity: process.env.DEFAULT_CITY,
   exitIpCheckUrl: process.env.EXIT_IP_CHECK_URL || 'https://ifconfig.io',
   healthIntervalSec: parseInt(process.env.HEALTH_INTERVAL_SEC || '15', 10),
