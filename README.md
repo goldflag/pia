@@ -160,7 +160,7 @@ services:
 
 - **VPN Provider**: Private Internet Access (PIA)
 - **VPN Protocol**: OpenVPN (UDP)
-- **Proxy Type**: SOCKS5 proxy (via go-socks5-proxy)
+- **Proxy Type**: Shadowsocks proxy (SOCKS5-compatible via Gluetun)
 - **Container Image**: qmcgaw/gluetun:latest
 - **Health Checks**: Automatic connectivity and exit IP verification
 - **Port Allocation**: Automatic with collision prevention

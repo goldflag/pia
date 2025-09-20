@@ -19,7 +19,7 @@ export const config: Config = {
   socksBind: process.env.SOCKS_BIND || '0.0.0.0',
   restEnabled: process.env.REST_ENABLED === 'true',
   restPort: parseInt(process.env.REST_PORT || '8080', 10),
-  vpnImage: process.env.VPN_IMAGE || 'curve25519xsalsa20poly1305/openvpn-socks5:latest',
+  vpnImage: process.env.VPN_IMAGE || 'qmcgaw/gluetun:latest',
   dbPath: process.env.DB_PATH || './data/proxies.json'
 };
 
