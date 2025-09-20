@@ -1,6 +1,6 @@
-# PIA OpenVPN Proxy Farm
+# PIA OpenVPN SOCKS5 Proxy Farm
 
-Run multiple HTTP proxies via PIA OpenVPN tunnels on a single host.
+Run multiple SOCKS5 proxies via PIA OpenVPN tunnels on a single host.
 
 ## Quick Start (Docker Compose)
 
@@ -99,15 +99,15 @@ pf status
 
 ### Using Proxies
 
-Connect via HTTP proxy:
+Connect via SOCKS5 proxy:
 ```bash
-# HTTP proxy on assigned port
-curl --proxy http://localhost:12000 https://ifconfig.io
+# SOCKS5 proxy on assigned port
+curl --socks5-hostname localhost:12000 https://ifconfig.io
 
-# In applications, configure HTTP proxy:
+# In applications, configure SOCKS5 proxy:
 # Host: localhost (or your server IP)
 # Port: 12000 (or assigned port)
-# Type: HTTP
+# Type: SOCKS5
 ```
 
 ## Configuration
@@ -133,7 +133,7 @@ The proxy containers are created on the host network. Each proxy exposes its HTT
 - Default range: 12000-13999
 - Each proxy gets a unique port from this range
 - Ports are managed by the proxy farm service
-- Protocol: HTTP proxy (not SOCKS5)
+- Protocol: SOCKS5 proxy
 
 ### Accessing Proxies from Other Containers
 
@@ -151,7 +151,7 @@ services:
 
 ## Security
 
-- Restrict HTTP proxy access via firewall
+- Restrict SOCKS5 proxy access via firewall
 - Never expose ports publicly without authentication
 - Keep PIA credentials secure
 - Use Docker secrets for production deployments
@@ -160,7 +160,7 @@ services:
 
 - **VPN Provider**: Private Internet Access (PIA)
 - **VPN Protocol**: OpenVPN (UDP)
-- **Proxy Type**: HTTP proxy (via Gluetun)
+- **Proxy Type**: SOCKS5 proxy (via go-socks5-proxy)
 - **Container Image**: qmcgaw/gluetun:latest
 - **Health Checks**: Automatic connectivity and exit IP verification
 - **Port Allocation**: Automatic with collision prevention
@@ -171,7 +171,7 @@ services:
 ### Proxy shows unhealthy but works
 - The health check may timeout during initial connection
 - Wait 10-15 seconds after creation for VPN to stabilize
-- Manually test with: `curl --proxy http://localhost:PORT https://ifconfig.io`
+- Manually test with: `curl --socks5-hostname localhost:PORT https://ifconfig.io`
 
 ### Container keeps restarting
 - Check PIA credentials in `.env` file
