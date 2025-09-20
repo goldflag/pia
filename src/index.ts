@@ -1,4 +1,4 @@
-import { validateConfig } from './config';
+import { config, validateConfig } from './config';
 import { reconcileContainers } from './docker';
 import { startHealthCheck } from './health';
 import { startApi } from './api';
@@ -12,7 +12,7 @@ async function main() {
     console.log('Reconciling existing containers...');
     await reconcileContainers();
     
-    console.log('Starting health check service...');
+    console.log(`Starting health check service (auto-heal: ${config.autoHealEnabled ? 'enabled' : 'disabled'})...`);
     startHealthCheck();
     
     startApi();

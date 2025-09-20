@@ -23,6 +23,7 @@ export interface Config {
   defaultCity?: string;
   exitIpCheckUrl: string;
   healthIntervalSec: number;
+  autoHealEnabled: boolean;
   socksBind: string;
   restEnabled: boolean;
   restPort: number;

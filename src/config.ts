@@ -15,6 +15,7 @@ export const config: Config = {
   defaultCity: process.env.DEFAULT_CITY,
   exitIpCheckUrl: process.env.EXIT_IP_CHECK_URL || 'https://ifconfig.io',
   healthIntervalSec: parseInt(process.env.HEALTH_INTERVAL_SEC || '15', 10),
+  autoHealEnabled: process.env.AUTO_HEAL_ENABLED !== 'false', // Default true
   socksBind: process.env.SOCKS_BIND || '0.0.0.0',
   restEnabled: process.env.REST_ENABLED === 'true',
   restPort: parseInt(process.env.REST_PORT || '8080', 10),
