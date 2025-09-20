@@ -1,7 +1,7 @@
 {
   "name": "proxyfarm",
   "version": "1.0.0",
-  "description": "PIA WireGuard Proxy Farm",
+  "description": "PIA SOCKS5 Proxy Farm via OpenVPN",
   "main": "dist/index.js",
   "bin": {
     "pf": "./bin/pf"

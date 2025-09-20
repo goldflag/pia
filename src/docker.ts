@@ -13,66 +13,49 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
   const country = options.country || config.defaultCountry;
   const city = options.city || config.defaultCity;
 
+  // Environment variables for docker-openvpn-socks5
   const env: string[] = [
-    'VPN_SERVICE_PROVIDER=private internet access',
-    'VPN_TYPE=openvpn',
-    'OPENVPN_PROTOCOL=udp',
-    'HTTPPROXY=on',
-    'HTTPPROXY_LISTENING_ADDRESS=:8888',
-    'HTTPPROXY_STEALTH=on',
-    'SHADOWSOCKS=off',
-    'UPDATER_PERIOD=24h',
-    'TZ=UTC',
-    'LOG_LEVEL=info'
+    'SOCKS5_PORT=1080',
+    'OPENVPN_PROTOCOL=udp'
   ];
 
   if (config.piaUsername && config.piaPassword) {
-    env.push(`OPENVPN_USER=${config.piaUsername}`);
+    env.push(`OPENVPN_USERNAME=${config.piaUsername}`);
     env.push(`OPENVPN_PASSWORD=${config.piaPassword}`);
   } else {
     throw new Error('PIA requires username and password for OpenVPN');
   }
 
-  // Configure region selection for PIA with Gluetun
-  // If country is specified, use it to filter servers
-  if (country) {
-    // For USA, we need to use the proper PIA region codes from their server list
+  // Configure PIA server selection
+  // We'll need to mount the appropriate .ovpn config file
+  let configFile = 'US_California.ovpn'; // Default
+
+  if (country && city) {
+    configFile = `${country}_${city.replace(' ', '_')}.ovpn`;
+  } else if (country) {
+    // Map country codes to PIA config files
     if (country.toLowerCase() === 'us' || country.toLowerCase() === 'usa') {
-      // Complete list of PIA USA servers from https://serverlist.piaservers.net/vpninfo/servers/v6
-      const usRegions = [
-        'US Las Vegas', 'US Iowa', 'US Chicago', 'US Pennsylvania', 'US New Mexico',
-        'US Vermont', 'US Houston', 'US Missouri', 'US Atlanta', 'US Denver',
-        'US Washington DC', 'US Wilmington', 'US Salt Lake City', 'US New York City',
-        'US Silicon Valley', 'US West', 'US North Dakota', 'US Baltimore', 'US Montana',
-        'US Connecticut', 'US Maine', 'US Wisconsin', 'US Kansas', 'US Idaho',
-        'US Oklahoma', 'US North Carolina', 'US Kentucky', 'US South Carolina',
-        'US Minnesota', 'US Alaska', 'US Massachusetts', 'US New Hampshire',
-        'US Honolulu', 'US South Dakota', 'US Michigan', 'US East', 'US Nebraska',
-        'US Rhode Island'
-      ].join(',');
-      env.push(`SERVER_REGIONS=${usRegions}`);
+      configFile = 'US_California.ovpn';
     } else {
-      // For other countries, pass the country code
-      env.push(`SERVER_REGIONS=${country}`);
+      configFile = `${country}.ovpn`;
     }
   }
 
-  // If city is specified along with country, try to use more specific region
-  if (country && city) {
-    const regionString = `${country} ${city}`;
-    env.push(`SERVER_REGIONS=${regionString}`);
-  }
+  env.push(`OPENVPN_CONFIG=/vpn/${configFile}`);
+  env.push(`OPENVPN_PROVIDER=PIA`);
+  env.push(`LOCAL_NETWORK=192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`);
 
   // Store region info in labels for reference
   const regionLabel = country && city ? `${country}-${city}` :
                       country ? country : 'auto';
 
+  // Create single container with OpenVPN + SOCKS5
   const containerInfo = await docker.createContainer({
-    Image: config.vpnImage,
+    Image: 'curve25519xsalsa20poly1305/openvpn-socks5:latest',
     name: `pf_${id}`,
     Env: env,
     ExposedPorts: {
-      '8888/tcp': {}
+      '1080/tcp': {}
     },
     HostConfig: {
       CapAdd: ['NET_ADMIN'],
@@ -82,9 +65,13 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
         CgroupPermissions: 'rwm'
       }],
       PortBindings: {
-        '8888/tcp': [{ HostPort: String(port) }]
+        '1080/tcp': [{ HostPort: String(port) }]
       },
-      RestartPolicy: { Name: 'unless-stopped' }
+      RestartPolicy: { Name: 'unless-stopped' },
+      Binds: [
+        // We'll need to mount PIA config files
+        `${process.cwd()}/pia-configs:/vpn:ro`
+      ]
     },
     Labels: {
       'proxyfarm': 'true',
@@ -143,7 +130,7 @@ export async function rotateProxy(id: string): Promise<ProxyRecord> {
   }
 
   const container = docker.getContainer(proxy.containerId);
-  
+
   try {
     await container.restart();
   } catch (err: any) {
@@ -224,13 +211,25 @@ export async function fetchExitIp(containerId: string): Promise<string | null> {
   }
 }
 
-export async function testHttpProxyConnection(host: string, port: number): Promise<boolean> {
+export async function testSocks5Connection(host: string, port: number): Promise<boolean> {
   const net = require('net');
-  
+
   return new Promise((resolve) => {
     const socket = net.createConnection({ host, port, timeout: 5000 }, () => {
-      socket.end();
-      resolve(true);
+      // Send SOCKS5 handshake
+      // Version 5, 1 auth method, no auth required
+      socket.write(Buffer.from([0x05, 0x01, 0x00]));
+    });
+
+    socket.on('data', (data: Buffer) => {
+      // Check SOCKS5 response (should be 0x05, 0x00 for success)
+      if (data[0] === 0x05 && data[1] === 0x00) {
+        socket.end();
+        resolve(true);
+      } else {
+        socket.end();
+        resolve(false);
+      }
     });
 
     socket.on('error', () => resolve(false));

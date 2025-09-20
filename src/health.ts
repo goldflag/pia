@@ -1,7 +1,7 @@
 import { registry } from "./registry";
 import { fetchExitIp } from "./docker";
 import { config } from "./config";
-import * as http from "http";
+import { SocksClient } from 'socks';
 
 export interface HealthCheckResult {
   proxyId: string;
@@ -20,7 +20,7 @@ export async function checkProxyHealth(
   }
 
   try {
-    // Test HTTP proxy by actually making a request through it
+    // Test SOCKS5 proxy by actually making a request through it
     const exitIp = await testProxyAndGetIp("127.0.0.1", proxy.port);
 
     if (!exitIp) {
@@ -372,33 +372,54 @@ async function testProxyAndGetIp(
   host: string,
   port: number
 ): Promise<string | null> {
-  return new Promise((resolve) => {
-    const options = {
-      host: host,
-      port: port,
-      path: config.exitIpCheckUrl,
-      method: "GET",
-      headers: {
-        Host: new URL(config.exitIpCheckUrl).hostname,
+  try {
+    const url = new URL(config.exitIpCheckUrl);
+    const https = url.protocol === 'https:' ? require('https') : require('http');
+
+    // Create a SOCKS5 connection
+    const info = await SocksClient.createConnection({
+      proxy: {
+        host: host,
+        port: port,
+        type: 5, // SOCKS5
+      },
+      command: 'connect',
+      destination: {
+        host: url.hostname,
+        port: parseInt(url.port || (url.protocol === 'https:' ? '443' : '80')),
       },
       timeout: 5000,
-    };
+    });
 
-    const req = http.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        const ip = data.trim().match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/);
-        resolve(ip ? ip[0] : null);
+    return new Promise((resolve) => {
+      const options = {
+        socket: info.socket,
+        host: url.hostname,
+        path: url.pathname,
+        method: 'GET',
+        headers: {
+          'Host': url.hostname,
+        },
+      };
+
+      const req = https.request(options, (res: any) => {
+        let data = '';
+        res.on('data', (chunk: any) => (data += chunk));
+        res.on('end', () => {
+          info.socket.end();
+          const ip = data.trim().match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/);
+          resolve(ip ? ip[0] : null);
+        });
       });
-    });
 
-    req.on("error", () => resolve(null));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(null);
-    });
+      req.on('error', () => {
+        info.socket.end();
+        resolve(null);
+      });
 
-    req.end();
-  });
+      req.end();
+    });
+  } catch (err) {
+    return null;
+  }
 }
