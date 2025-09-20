@@ -36,10 +36,21 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
   // Configure region selection for PIA with Gluetun
   // If country is specified, use it to filter servers
   if (country) {
-    // For USA, we need to use the proper PIA region codes
+    // For USA, we need to use the proper PIA region codes from their server list
     if (country.toLowerCase() === 'us' || country.toLowerCase() === 'usa') {
-      // PIA uses specific region codes for USA servers
-      env.push('SERVER_REGIONS=US Atlanta,US California,US Chicago,US Dallas,US Denver,US East,US Florida,US Houston,US Las Vegas,US New York,US Seattle,US Silicon Valley,US Washington DC,US West');
+      // Complete list of PIA USA servers from https://serverlist.piaservers.net/vpninfo/servers/v6
+      const usRegions = [
+        'US Las Vegas', 'US Iowa', 'US Chicago', 'US Pennsylvania', 'US New Mexico',
+        'US Vermont', 'US Houston', 'US Missouri', 'US Atlanta', 'US Denver',
+        'US Washington DC', 'US Wilmington', 'US Salt Lake City', 'US New York City',
+        'US Silicon Valley', 'US West', 'US North Dakota', 'US Baltimore', 'US Montana',
+        'US Connecticut', 'US Maine', 'US Wisconsin', 'US Kansas', 'US Idaho',
+        'US Oklahoma', 'US North Carolina', 'US Kentucky', 'US South Carolina',
+        'US Minnesota', 'US Alaska', 'US Massachusetts', 'US New Hampshire',
+        'US Honolulu', 'US South Dakota', 'US Michigan', 'US East', 'US Nebraska',
+        'US Rhode Island'
+      ].join(',');
+      env.push(`SERVER_REGIONS=${usRegions}`);
     } else {
       // For other countries, pass the country code
       env.push(`SERVER_REGIONS=${country}`);
