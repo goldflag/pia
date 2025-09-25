@@ -14,7 +14,6 @@ export interface ProxyRecord {
 export interface Config {
   portRangeStart: number;
   portRangeEnd: number;
-  maxProxies: number;
   piaUsername?: string;
   piaPassword?: string;
   piaToken?: string;
@@ -29,6 +28,8 @@ export interface Config {
   restPort: number;
   vpnImage: string;
   dbPath: string;
+  cpuLimit: number;
+  logDriver: string;
 }
 
 export interface CreateProxyOptions {

@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   proxyfarm:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: proxyfarm-manager
@@ -10,7 +10,6 @@ services:
     environment:
       - PORT_RANGE_START=${PORT_RANGE_START:-12000}
       - PORT_RANGE_END=${PORT_RANGE_END:-13999}
-      - MAX_PROXIES=${MAX_PROXIES:-300}
       - PIA_USERNAME=${PIA_USERNAME}
       - PIA_PASSWORD=${PIA_PASSWORD}
       - PIA_TOKEN=${PIA_TOKEN}

@@ -5,17 +5,20 @@ Run multiple HTTP proxies via PIA OpenVPN tunnels on a single host.
 ## Quick Start (Docker Compose)
 
 1. Configure PIA credentials:
+
 ```bash
 cp .env.example .env
 vim .env  # Add your PIA_USERNAME and PIA_PASSWORD
 ```
 
 2. Start the proxy farm:
+
 ```bash
 ./manage.sh start
 ```
 
 3. Create proxies:
+
 ```bash
 # Add proxies (auto-selects best PIA server)
 docker exec proxyfarm-manager pf add  # Creates 1 proxy
@@ -32,17 +35,20 @@ docker exec proxyfarm-manager pf ls
 For local development without Docker:
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Configure environment:
+
 ```bash
 cp .env.example .env
 # Edit .env with your PIA credentials
 ```
 
 3. Build TypeScript:
+
 ```bash
 npm run build
 ```
@@ -86,6 +92,7 @@ docker-compose down
 ### CLI Commands (Direct)
 
 When running directly on host:
+
 ```bash
 pf add  # Creates 1 proxy
 pf add 10  # Creates 10 proxies
@@ -100,6 +107,7 @@ pf status
 ### Using Proxies
 
 Connect via HTTP proxy:
+
 ```bash
 # HTTP proxy on assigned port
 curl --proxy http://localhost:12000 https://ifconfig.io
@@ -113,9 +121,9 @@ curl --proxy http://localhost:12000 https://ifconfig.io
 ## Configuration
 
 Key environment variables:
+
 - `PIA_USERNAME` / `PIA_PASSWORD`: PIA credentials
 - `PORT_RANGE_START` / `PORT_RANGE_END`: Port range for proxies
-- `MAX_PROXIES`: Maximum proxy limit
 - `REST_ENABLED`: Enable REST API (default: false)
 
 ## System Requirements
@@ -130,6 +138,7 @@ Key environment variables:
 The proxy containers are created on the host network. Each proxy exposes its HTTP proxy port directly on the host.
 
 ### Port Management
+
 - Default range: 12000-13999
 - Each proxy gets a unique port from this range
 - Ports are managed by the proxy farm service
@@ -143,10 +152,10 @@ If you need to access proxies from other Docker containers:
 # In your docker-compose.yml
 services:
   your-app:
-    network_mode: host  # Access proxy ports directly
+    network_mode: host # Access proxy ports directly
     # OR
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Then use host.docker.internal:12000
+      - "host.docker.internal:host-gateway" # Then use host.docker.internal:12000
 ```
 
 ## Security
@@ -169,11 +178,13 @@ services:
 ## Troubleshooting
 
 ### Proxy shows unhealthy but works
+
 - The health check may timeout during initial connection
 - Wait 10-15 seconds after creation for VPN to stabilize
 - Manually test with: `curl --proxy http://localhost:PORT https://ifconfig.io`
 
 ### Container keeps restarting
+
 - Check PIA credentials in `.env` file
 - Verify Docker has sufficient resources
 - Check logs: `docker logs pf_CONTAINER_ID`
@@ -192,6 +203,7 @@ Use the `manage.sh` script for all operations:
 ```
 
 **Examples:**
+
 - First time setup: `./manage.sh start`
 - Deploy new code changes: `./manage.sh update`
 - Start fresh but keep images cached: `./manage.sh reset`
