@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   proxyfarm:
     build:
@@ -22,6 +20,7 @@ services:
       - REST_PORT=${REST_PORT:-8080}
       - VPN_IMAGE=${VPN_IMAGE:-qmcgaw/gluetun:latest}
       - DB_PATH=/app/data/proxies.json
+      - PROXY_AUTH_PASSWORD=${PROXY_AUTH_PASSWORD}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./data:/app/data
