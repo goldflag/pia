@@ -20,7 +20,6 @@ export const config: Config = {
   restPort: parseInt(process.env.REST_PORT || "8080", 10),
   vpnImage: process.env.VPN_IMAGE || "qmcgaw/gluetun:latest",
   dbPath: process.env.DB_PATH || "./data/proxies.json",
-  cpuLimit: parseFloat(process.env.CPU_LIMIT || "0.2"),
   logDriver: process.env.LOG_DRIVER || "none",
 };
 

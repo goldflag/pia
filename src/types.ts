@@ -28,7 +28,6 @@ export interface Config {
   restPort: number;
   vpnImage: string;
   dbPath: string;
-  cpuLimit: number;
   logDriver: string;
 }
 

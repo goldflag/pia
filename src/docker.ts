@@ -84,9 +84,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
       PortBindings: {
         '8888/tcp': [{ HostPort: String(port) }]
       },
-      RestartPolicy: { Name: 'unless-stopped' },
-      CpuQuota: Math.floor(config.cpuLimit * 100000),
-      CpuPeriod: 100000,
+      RestartPolicy: { Name: 'no' },
       LogConfig: { Type: config.logDriver, Config: {} }
     },
     Labels: {
