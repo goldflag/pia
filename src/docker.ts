@@ -13,7 +13,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
   const country = options.country || config.defaultCountry;
   const city = options.city || config.defaultCity;
 
-  // Use only password authentication if configured
+  // Use password authentication if configured
   const password = config.proxyAuthPassword;
 
   const env: string[] = [
@@ -25,10 +25,11 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'HTTPPROXY_STEALTH=on',
   ];
 
-  // Only add password authentication if configured (no username)
+  // Add authentication if password is configured
+  // Note: Gluetun requires BOTH user and password to enforce auth
   if (password) {
+    env.push(`HTTPPROXY_USER=proxy`);  // Use a simple default username
     env.push(`HTTPPROXY_PASSWORD=${password}`);
-    // Not setting HTTPPROXY_USER means authentication will use any username with the password
   }
 
   env.push(
@@ -104,7 +105,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
       'proxyfarm.id': id,
       'proxyfarm.port': String(port),
       'proxyfarm.region': regionLabel,
-      ...(password ? { 'proxyfarm.password': password } : {}),
+      ...(password ? { 'proxyfarm.username': 'proxy', 'proxyfarm.password': password } : {}),
       ...(country ? { 'proxyfarm.country': country } : {}),
       ...(city ? { 'proxyfarm.city': city } : {})
     }
@@ -124,6 +125,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     restarts: 0,
     createdAt: new Date().toISOString(),
     notes: options.notes,
+    username: password ? 'proxy' : undefined,
     password: password || undefined
   };
 
@@ -287,6 +289,7 @@ export async function reconcileContainers(): Promise<void> {
         healthy: container.State === 'running',
         restarts: 0,
         createdAt: new Date(container.Created * 1000).toISOString(),
+        username: container.Labels['proxyfarm.username'],
         password: container.Labels['proxyfarm.password']
       };
 

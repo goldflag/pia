@@ -9,6 +9,7 @@ export interface ProxyRecord {
   restarts: number;
   createdAt: string;
   notes?: string;
+  username?: string;
   password?: string;
 }
 

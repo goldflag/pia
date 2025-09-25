@@ -202,7 +202,7 @@ program
       ];
 
       if (options.auth) {
-        tableHead.push("Password");
+        tableHead.push("Auth");
       }
 
       const table = new Table({
@@ -228,7 +228,7 @@ program
         ];
 
         if (options.auth) {
-          row.push(proxy.password || "-");
+          row.push(proxy.password ? `proxy:${proxy.password}` : "-");
         }
 
         table.push(row);
@@ -326,13 +326,12 @@ program
       if (proxy.password) {
         console.log(chalk.cyan("\nAuthentication"));
         console.log(chalk.gray("─".repeat(40)));
+        console.log(`Username: ${proxy.username || 'proxy'}`);
         console.log(`Password: ${proxy.password}`);
-        console.log(`Note: Any username works with this password`);
 
         console.log(chalk.cyan("\nConnection Details"));
         console.log(chalk.gray("─".repeat(40)));
-        console.log(`HTTP Proxy URL: http://user:${proxy.password}@localhost:${proxy.port}`);
-        console.log(`(Replace 'user' with any username you prefer)`);
+        console.log(`HTTP Proxy URL: http://${proxy.username || 'proxy'}:${proxy.password}@localhost:${proxy.port}`);
       } else {
         console.log(chalk.cyan("\nConnection Details"));
         console.log(chalk.gray("─".repeat(40)));
