@@ -91,7 +91,7 @@ export async function healProxies(): Promise<void> {
   const docker = new Docker();
   const { rotateProxy, reconcileContainers } = await import("./docker");
 
-  console.log("Step 1: Reconciling with Docker containers...");
+  console.log(`[${new Date().toISOString()}] Step 1: Reconciling with Docker containers...`);
   await reconcileContainers();
 
   // Get all containers that are actually running
@@ -104,12 +104,12 @@ export async function healProxies(): Promise<void> {
   let proxies = await registry.list();
 
   // Step 2: Remove entries for containers that don't exist
-  console.log("Step 2: Removing entries for missing containers...");
+  console.log(`[${new Date().toISOString()}] Step 2: Removing entries for missing containers...`);
   let removedMissing = 0;
   for (const proxy of proxies) {
     if (!runningContainerIds.has(proxy.containerId)) {
       console.log(
-        `  Removing entry for missing container: ${proxy.id} (port ${proxy.port})`
+        `[${new Date().toISOString()}]   Removing entry for missing container: ${proxy.id} (port ${proxy.port})`
       );
       await registry.remove(proxy.id);
       removedMissing++;
@@ -117,14 +117,14 @@ export async function healProxies(): Promise<void> {
   }
 
   if (removedMissing > 0) {
-    console.log(`  ✓ Removed ${removedMissing} entries for missing containers`);
+    console.log(`[${new Date().toISOString()}]   ✓ Removed ${removedMissing} entries for missing containers`);
     proxies = await registry.list();
   } else {
-    console.log("  ✓ No missing containers found");
+    console.log(`[${new Date().toISOString()}]   ✓ No missing containers found`);
   }
 
   // Step 3: Detect and remove duplicates with port conflicts
-  console.log("Step 3: Removing duplicate proxies...");
+  console.log(`[${new Date().toISOString()}] Step 3: Removing duplicate proxies...`);
   const portMap = new Map<number, (typeof proxies)[0][]>();
   for (const proxy of proxies) {
     if (!portMap.has(proxy.port)) {
@@ -137,7 +137,7 @@ export async function healProxies(): Promise<void> {
   for (const [port, proxyList] of portMap) {
     if (proxyList.length > 1) {
       console.log(
-        `  Port ${port} has ${proxyList.length} entries, cleaning up...`
+        `[${new Date().toISOString()}]   Port ${port} has ${proxyList.length} entries, cleaning up...`
       );
 
       // Sort by creation date, keep the oldest healthy one or just the oldest
@@ -149,7 +149,7 @@ export async function healProxies(): Promise<void> {
 
       for (const proxy of proxyList) {
         if (proxy.id !== keep.id) {
-          console.log(`    Removing duplicate: ${proxy.id}`);
+          console.log(`[${new Date().toISOString()}]     Removing duplicate: ${proxy.id}`);
           await registry.remove(proxy.id);
           removedDuplicates++;
         }
@@ -158,13 +158,13 @@ export async function healProxies(): Promise<void> {
   }
 
   if (removedDuplicates > 0) {
-    console.log(`  ✓ Removed ${removedDuplicates} duplicate entries`);
+    console.log(`[${new Date().toISOString()}]   ✓ Removed ${removedDuplicates} duplicate entries`);
   } else {
-    console.log("  ✓ No duplicates found");
+    console.log(`[${new Date().toISOString()}]   ✓ No duplicates found`);
   }
 
   // Step 4: Remove orphaned containers
-  console.log("Step 4: Removing orphaned containers...");
+  console.log(`[${new Date().toISOString()}] Step 4: Removing orphaned containers...`);
   const registeredIds = new Set(
     (await registry.list()).map((p) => p.containerId)
   );
@@ -172,7 +172,7 @@ export async function healProxies(): Promise<void> {
 
   for (const containerInfo of allContainers) {
     if (!registeredIds.has(containerInfo.Id)) {
-      console.log(`  Found orphaned container: ${containerInfo.Names[0]}`);
+      console.log(`[${new Date().toISOString()}]   Found orphaned container: ${containerInfo.Names[0]}`);
       try {
         const container = docker.getContainer(containerInfo.Id);
         // Try to stop first, but ignore if already stopped
@@ -184,27 +184,27 @@ export async function healProxies(): Promise<void> {
         // Now remove the container
         await container.remove();
         orphaned++;
-        console.log(`    ✓ Removed`);
+        console.log(`[${new Date().toISOString()}]     ✓ Removed`);
       } catch (err: any) {
-        console.log(`    ✗ Failed to remove: ${err.message}`);
+        console.log(`[${new Date().toISOString()}]     ✗ Failed to remove: ${err.message}`);
       }
     }
   }
 
   if (orphaned > 0) {
-    console.log(`  ✓ Removed ${orphaned} orphaned containers`);
+    console.log(`[${new Date().toISOString()}]   ✓ Removed ${orphaned} orphaned containers`);
   } else {
-    console.log("  ✓ No orphaned containers found");
+    console.log(`[${new Date().toISOString()}]   ✓ No orphaned containers found`);
   }
 
   // Step 5: Check current health and heal unhealthy proxies
-  console.log("Step 5: Checking health and healing unhealthy proxies...");
+  console.log(`[${new Date().toISOString()}] Step 5: Checking health and healing unhealthy proxies...`);
   const updatedProxies = await registry.list();
   let healed = 0;
   let failed = 0;
 
   // Do a fresh health check on all proxies in parallel
-  console.log("  Running fresh health checks on all proxies...");
+  console.log(`[${new Date().toISOString()}]   Running fresh health checks on all proxies...`);
   const healthResults = await bulkHealthCheck(updatedProxies.map((p) => p.id));
 
   // Find unhealthy proxies
@@ -216,55 +216,55 @@ export async function healProxies(): Promise<void> {
   const unhealthyCount = unhealthyProxies.length;
 
   if (unhealthyCount > 0) {
-    console.log(`  Found ${unhealthyCount} unhealthy proxies`);
+    console.log(`[${new Date().toISOString()}]   Found ${unhealthyCount} unhealthy proxies`);
 
     for (const proxy of unhealthyProxies) {
       const health = healthResults.get(proxy.id)!;
       console.log(
-        `  Unhealthy proxy: ${proxy.id} (port ${proxy.port}) - ${health.error}`
+        `[${new Date().toISOString()}]   Unhealthy proxy: ${proxy.id} (port ${proxy.port}) - ${health.error}`
       );
 
       if (proxy.restarts >= 3) {
-        console.log(`    Skipped: failed ${proxy.restarts} times`);
+        console.log(`[${new Date().toISOString()}]     Skipped: failed ${proxy.restarts} times`);
         continue;
       }
 
       try {
-        console.log(`    Restarting proxy...`);
+        console.log(`[${new Date().toISOString()}]     Restarting proxy...`);
         await rotateProxy(proxy.id);
         healed++;
-        console.log(`    ✓ Restarted`);
+        console.log(`[${new Date().toISOString()}]     ✓ Restarted`);
 
         await new Promise((resolve) => setTimeout(resolve, 5000));
 
         const newHealth = await checkProxyHealth(proxy.id);
         if (newHealth.healthy) {
-          console.log(`    ✓ Now healthy - Exit IP: ${newHealth.exitIp}`);
+          console.log(`[${new Date().toISOString()}]     ✓ Now healthy - Exit IP: ${newHealth.exitIp}`);
         } else {
-          console.log(`    ✗ Still unhealthy: ${newHealth.error}`);
+          console.log(`[${new Date().toISOString()}]     ✗ Still unhealthy: ${newHealth.error}`);
         }
       } catch (err: any) {
         failed++;
-        console.error(`    ✗ Failed to restart: ${err.message}`);
+        console.error(`[${new Date().toISOString()}]     ✗ Failed to restart: ${err.message}`);
       }
     }
   }
 
   if (unhealthyCount === 0) {
-    console.log("  ✓ All proxies are healthy");
+    console.log(`[${new Date().toISOString()}]   ✓ All proxies are healthy`);
   } else if (healed > 0 || failed > 0) {
     console.log(
-      `  ✓ Found ${unhealthyCount} unhealthy, healed ${healed} proxies${
+      `[${new Date().toISOString()}]   ✓ Found ${unhealthyCount} unhealthy, healed ${healed} proxies${
         failed > 0 ? `, ${failed} failed` : ""
       }`
     );
   } else {
     console.log(
-      `  Found ${unhealthyCount} unhealthy proxies but none were healed (may have exceeded restart limit)`
+      `[${new Date().toISOString()}]   Found ${unhealthyCount} unhealthy proxies but none were healed (may have exceeded restart limit)`
     );
   }
 
-  console.log("\n✓ Maintenance complete");
+  console.log(`[${new Date().toISOString()}] \n✓ Maintenance complete`);
 }
 
 async function autoHealUnhealthyProxy(proxyId: string): Promise<boolean> {
@@ -277,14 +277,14 @@ async function autoHealUnhealthyProxy(proxyId: string): Promise<boolean> {
   // Skip if already tried too many times
   if (proxy.restarts >= 3) {
     console.log(
-      `[AutoHeal] Skipping ${proxyId} (port ${proxy.port}) - exceeded restart limit (${proxy.restarts} attempts)`
+      `[${new Date().toISOString()}] [AutoHeal] Skipping ${proxyId} (port ${proxy.port}) - exceeded restart limit (${proxy.restarts} attempts)`
     );
     return false;
   }
 
   try {
     console.log(
-      `[AutoHeal] Healing unhealthy proxy ${proxyId} (port ${proxy.port})`
+      `[${new Date().toISOString()}] [AutoHeal] Healing unhealthy proxy ${proxyId} (port ${proxy.port})`
     );
     const { rotateProxy } = await import("./docker");
     await rotateProxy(proxyId);
@@ -296,17 +296,17 @@ async function autoHealUnhealthyProxy(proxyId: string): Promise<boolean> {
     const health = await checkProxyHealth(proxyId);
     if (health.healthy) {
       console.log(
-        `[AutoHeal] ✓ Proxy ${proxyId} is now healthy - Exit IP: ${health.exitIp}`
+        `[${new Date().toISOString()}] [AutoHeal] ✓ Proxy ${proxyId} is now healthy - Exit IP: ${health.exitIp}`
       );
       return true;
     } else {
       console.log(
-        `[AutoHeal] ✗ Proxy ${proxyId} still unhealthy after restart: ${health.error}`
+        `[${new Date().toISOString()}] [AutoHeal] ✗ Proxy ${proxyId} still unhealthy after restart: ${health.error}`
       );
       return false;
     }
   } catch (err: any) {
-    console.error(`[AutoHeal] Failed to heal proxy ${proxyId}: ${err.message}`);
+    console.error(`[${new Date().toISOString()}] [AutoHeal] Failed to heal proxy ${proxyId}: ${err.message}`);
     return false;
   }
 }
@@ -321,12 +321,17 @@ export function startHealthCheck(): void {
   const runCheck = async () => {
     try {
       const results = await healthCheckAll();
-      console.log(
-        `[HealthCheck] Unhealthy proxies: ${results
-          .filter((r) => !r.healthy)
-          .map((r) => `${r.proxyId} - ${r.exitIp}`)
-          .join(", ")}`
-      );
+      const unhealthyResults = results.filter((r) => !r.healthy);
+
+      if (unhealthyResults.length === 0) {
+        console.log(`[${new Date().toISOString()}] [HealthCheck] All proxies healthy`);
+      } else {
+        console.log(
+          `[${new Date().toISOString()}] [HealthCheck] Unhealthy proxies (${unhealthyResults.length}): ${unhealthyResults
+            .map((r) => `${r.proxyId}:${r.error || 'no error'}`)
+            .join(", ")}`
+        );
+      }
 
       // Auto-heal unhealthy proxies if enabled
       if (config.autoHealEnabled) {
@@ -334,7 +339,7 @@ export function startHealthCheck(): void {
 
         if (unhealthyProxies.length > 0) {
           console.log(
-            `[AutoHeal] Found ${unhealthyProxies.length} unhealthy proxies, attempting auto-heal...`
+            `[${new Date().toISOString()}] [AutoHeal] Found ${unhealthyProxies.length} unhealthy proxies, attempting auto-heal...`
           );
 
           // Heal proxies in parallel (but limit concurrency to avoid overwhelming the system)
@@ -352,7 +357,7 @@ export function startHealthCheck(): void {
         }
       }
     } catch (err: any) {
-      console.error("Health check error:", err.message);
+      console.error(`[${new Date().toISOString()}] Health check error:`, err.message);
     }
   };
 

@@ -8,3 +8,4 @@ data/
 *.db
 keys/
 PIA_WG_KEYS_DIR/
+load-test-results-*.json
