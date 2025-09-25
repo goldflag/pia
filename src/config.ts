@@ -21,6 +21,7 @@ export const config: Config = {
   vpnImage: process.env.VPN_IMAGE || "qmcgaw/gluetun:latest",
   dbPath: process.env.DB_PATH || "./data/proxies.json",
   logDriver: process.env.LOG_DRIVER || "none",
+  proxyAuthPassword: process.env.PROXY_AUTH_PASSWORD,
 };
 
 export function validateConfig(): void {

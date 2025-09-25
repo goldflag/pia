@@ -9,9 +9,12 @@ const docker = new Docker();
 export async function createProxy(options: CreateProxyOptions = {}): Promise<ProxyRecord> {
   const id = randomUUID();
   const port = options.port || await registry.allocatePort();
-  
+
   const country = options.country || config.defaultCountry;
   const city = options.city || config.defaultCity;
+
+  // Use only password authentication if configured
+  const password = config.proxyAuthPassword;
 
   const env: string[] = [
     'VPN_SERVICE_PROVIDER=private internet access',
@@ -20,11 +23,20 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     'HTTPPROXY=on',
     'HTTPPROXY_LISTENING_ADDRESS=:8888',
     'HTTPPROXY_STEALTH=on',
+  ];
+
+  // Only add password authentication if configured (no username)
+  if (password) {
+    env.push(`HTTPPROXY_PASSWORD=${password}`);
+    // Not setting HTTPPROXY_USER means authentication will use any username with the password
+  }
+
+  env.push(
     'SHADOWSOCKS=off',
     'UPDATER_PERIOD=24h',
     'TZ=UTC',
     'LOG_LEVEL=info'
-  ];
+  );
 
   if (config.piaUsername && config.piaPassword) {
     env.push(`OPENVPN_USER=${config.piaUsername}`);
@@ -92,6 +104,7 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
       'proxyfarm.id': id,
       'proxyfarm.port': String(port),
       'proxyfarm.region': regionLabel,
+      ...(password ? { 'proxyfarm.password': password } : {}),
       ...(country ? { 'proxyfarm.country': country } : {}),
       ...(city ? { 'proxyfarm.city': city } : {})
     }
@@ -110,7 +123,8 @@ export async function createProxy(options: CreateProxyOptions = {}): Promise<Pro
     healthy: false,
     restarts: 0,
     createdAt: new Date().toISOString(),
-    notes: options.notes
+    notes: options.notes,
+    password: password || undefined
   };
 
   await registry.add(proxy);
@@ -144,21 +158,26 @@ export async function rotateProxy(id: string): Promise<ProxyRecord> {
   }
 
   const container = docker.getContainer(proxy.containerId);
-  
+
   try {
     await container.restart();
   } catch (err: any) {
     if (err.statusCode === 404) {
-      return await createProxy({
+      // When recreating a proxy that's been deleted, generate new credentials
+      const newProxy = await createProxy({
         country: proxy.country,
         city: proxy.city,
-        notes: proxy.notes
+        notes: proxy.notes,
+        port: proxy.port
       });
+      // Remove the old proxy from registry and return the new one
+      await registry.remove(id);
+      return newProxy;
     }
     throw err;
   }
 
-  await registry.update(id, { 
+  await registry.update(id, {
     restarts: proxy.restarts + 1,
     exitIp: undefined,
     healthy: false
@@ -256,7 +275,7 @@ export async function reconcileContainers(): Promise<void> {
   for (const container of containers) {
     const id = container.Labels['proxyfarm.id'];
     const port = parseInt(container.Labels['proxyfarm.port'], 10);
-    
+
     if (!registryByContainerId.has(container.Id)) {
       const proxy: ProxyRecord = {
         id: id || randomUUID(),
@@ -267,9 +286,10 @@ export async function reconcileContainers(): Promise<void> {
         exitIp: undefined,
         healthy: container.State === 'running',
         restarts: 0,
-        createdAt: new Date(container.Created * 1000).toISOString()
+        createdAt: new Date(container.Created * 1000).toISOString(),
+        password: container.Labels['proxyfarm.password']
       };
-      
+
       await registry.add(proxy);
     }
   }

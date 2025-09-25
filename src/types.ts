@@ -9,6 +9,7 @@ export interface ProxyRecord {
   restarts: number;
   createdAt: string;
   notes?: string;
+  password?: string;
 }
 
 export interface Config {
@@ -29,6 +30,7 @@ export interface Config {
   vpnImage: string;
   dbPath: string;
   logDriver: string;
+  proxyAuthPassword?: string;
 }
 
 export interface CreateProxyOptions {

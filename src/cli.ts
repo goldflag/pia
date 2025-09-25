@@ -79,11 +79,12 @@ program
               city: options.city,
               port, // Pass the pre-allocated port
             });
+            const authInfo = proxy.password ? ` (auth enabled)` : '';
             console.log(
               chalk.green(
                 `✓ Created proxy ${batchStart + index + 1}/${count}: port ${
                   proxy.port
-                }`
+                }${authInfo}`
               )
             );
             return proxy;
@@ -157,6 +158,7 @@ program
   .description("List all proxies with current health status")
   .option("--json", "Output as JSON")
   .option("--no-check", "Skip health check")
+  .option("--auth", "Show authentication credentials")
   .action(async (options) => {
     try {
       await reconcileContainers();
@@ -189,16 +191,22 @@ program
         return;
       }
 
+      const tableHead = [
+        "ID",
+        "Port",
+        "Region",
+        "Exit IP",
+        "Status",
+        "Restarts",
+        "Created",
+      ];
+
+      if (options.auth) {
+        tableHead.push("Password");
+      }
+
       const table = new Table({
-        head: [
-          "ID",
-          "Port",
-          "Region",
-          "Exit IP",
-          "Status",
-          "Restarts",
-          "Created",
-        ],
+        head: tableHead,
         style: { head: ["cyan"] },
       });
 
@@ -209,7 +217,7 @@ program
         const region = `${proxy.country || "Auto"}/${proxy.city || "Auto"}`;
         const created = new Date(proxy.createdAt).toLocaleString();
 
-        table.push([
+        const row = [
           proxy.id.substring(0, 8),
           proxy.port,
           region,
@@ -217,7 +225,13 @@ program
           status,
           proxy.restarts,
           created,
-        ]);
+        ];
+
+        if (options.auth) {
+          row.push(proxy.password || "-");
+        }
+
+        table.push(row);
       }
 
       console.log(table.toString());
@@ -282,6 +296,55 @@ program
       console.log(chalk.cyan("Starting proxy maintenance..."));
       console.log(chalk.gray("─".repeat(40)));
       await healProxies();
+    } catch (err: any) {
+      console.error(chalk.red("Error:"), err.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("info <id>")
+  .description("Show detailed proxy information including credentials")
+  .action(async (id) => {
+    try {
+      const proxy = await registry.get(id);
+      if (!proxy) {
+        console.error(chalk.red(`Proxy ${id} not found`));
+        process.exit(1);
+      }
+
+      console.log(chalk.cyan("Proxy Information"));
+      console.log(chalk.gray("─".repeat(40)));
+      console.log(`ID: ${proxy.id}`);
+      console.log(`Port: ${proxy.port}`);
+      console.log(`Region: ${proxy.country || "Auto"}/${proxy.city || "Auto"}`);
+      console.log(`Exit IP: ${proxy.exitIp || "-"}`);
+      console.log(`Status: ${proxy.healthy ? chalk.green("✓ Healthy") : chalk.red("✗ Unhealthy")}`);
+      console.log(`Restarts: ${proxy.restarts}`);
+      console.log(`Created: ${new Date(proxy.createdAt).toLocaleString()}`);
+
+      if (proxy.password) {
+        console.log(chalk.cyan("\nAuthentication"));
+        console.log(chalk.gray("─".repeat(40)));
+        console.log(`Password: ${proxy.password}`);
+        console.log(`Note: Any username works with this password`);
+
+        console.log(chalk.cyan("\nConnection Details"));
+        console.log(chalk.gray("─".repeat(40)));
+        console.log(`HTTP Proxy URL: http://user:${proxy.password}@localhost:${proxy.port}`);
+        console.log(`(Replace 'user' with any username you prefer)`);
+      } else {
+        console.log(chalk.cyan("\nConnection Details"));
+        console.log(chalk.gray("─".repeat(40)));
+        console.log(`HTTP Proxy URL: http://localhost:${proxy.port}`);
+        console.log(`No authentication required`);
+      }
+
+      if (proxy.notes) {
+        console.log(chalk.cyan("\nNotes"));
+        console.log(chalk.gray("─".repeat(40)));
+        console.log(proxy.notes);
+      }
     } catch (err: any) {
       console.error(chalk.red("Error:"), err.message);
       process.exit(1);
